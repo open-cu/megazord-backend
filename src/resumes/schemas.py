@@ -1,7 +1,6 @@
-from ninja import Router, Schema, Field
 from typing import Optional, List
 
-from projects.schemas import Project
+from ninja import Schema
 
 
 class Resume(Schema):
@@ -16,11 +15,14 @@ class Resume(Schema):
     personal_website: Optional[str] = ''
     pdf_link: Optional[str] = ''
 
+
 class Error(Schema):
     details: str
 
+
 class SuggestResumeSchema(Schema):
     link: str
+
 
 class ResumeSuggestion(Schema):
     bio: Optional[str] = None
