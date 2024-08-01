@@ -1,0 +1,37 @@
+version: "3.9"
+name: "megazord"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+
+#    environment:
+#      - DATABASE_URL=postgres://user:password@db:5432/exampledb
+#    depends_on:
+#      - db
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_CLIENT=${VITE_API_CLIENT:-http://localhost:8000/api}
+      - VITE_BACKEND_URL=${VITE_BACKEND_URL:-http://localhost:8000}
+
+#  db:
+#    image: postgres:latest
+#    environment:
+#      POSTGRES_DB: exampledb
+#      POSTGRES_USER: user
+#      POSTGRES_PASSWORD: password
+#    volumes:
+#      - db-data:/var/lib/postgresql/data
+
+#volumes:
+#  db-data:
