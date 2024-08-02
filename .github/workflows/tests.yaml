@@ -1,0 +1,27 @@
+name: Test
+run-name: Test - ${{ github.ref_name }}
+
+on:
+  push:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.4"
+
+      - name: Install requirements
+        run: pip install -r requirements.txt
+
+      - name: Test Django
+        run: python src/manage.py test
