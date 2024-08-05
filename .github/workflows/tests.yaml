@@ -3,10 +3,11 @@ run-name: Test - ${{ github.ref_name }}
 
 on:
   push:
-  pull_request:
-    types:
-      - opened
-      - synchronize
+    branches:
+      - main
+    tags:
+      - '**'
+  pull_request: {}
 
 jobs:
   lint:
