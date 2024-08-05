@@ -21,7 +21,16 @@ jobs:
           python-version: "3.12.4"
 
       - name: Install requirements
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt -r requirements.dev.txt
 
       - name: Test Django
-        run: python src/manage.py test
+        run: |
+          coverage run src/manage.py test
+          coverage xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
