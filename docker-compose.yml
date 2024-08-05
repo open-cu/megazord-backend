@@ -6,6 +6,9 @@ services:
     image: ghcr.io/open-cu/megazord-backend:${BACKEND_IMAGE_TAG:-main}
     ports:
       - "8000:8000"
+    environment:
+      - DEBUG=${DEBUG:-False}
+      - AUTH_SECRET=${AUTH_SECRET:-secret}
 
 #    environment:
 #      - DATABASE_URL=postgres://user:password@db:5432/exampledb
