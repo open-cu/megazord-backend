@@ -1,5 +1,5 @@
 # Changelog
-## Unreleased - 05.08.2024
+## Unreleased - 06.08.2024
 
 ### Bug Fixes
 
@@ -7,6 +7,7 @@
 
 ### Miscellaneous Tasks
 
+- Setup code quality checker (#10) - ([117b91c](https://github.com/open-cu/megazord-backend/commit/117b91cf6d68c80be76c6f54f191223fa577ce4d))
 - Replace images in docker-compose - ([abb7201](https://github.com/open-cu/megazord-backend/commit/abb720130724c90bd7ecb70ba2e98862f8f487f9))
 - Add changelog generate action - ([69af5a8](https://github.com/open-cu/megazord-backend/commit/69af5a82a8863fde688b5a951544ec80ea41dd5c))
 - Add build & test actions - ([e151e0d](https://github.com/open-cu/megazord-backend/commit/e151e0d2e4d844d788b623714e5895560bf2e2da))
