@@ -3,12 +3,30 @@ run-name: Test - ${{ github.ref_name }}
 
 on:
   push:
-  pull_request:
-    types:
-      - opened
-      - synchronize
+    branches:
+      - main
+    tags:
+      - '**'
+  pull_request: {}
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.4"
+
+      - name: Install requirements
+        run: pip install -r requirements.txt -r requirements.dev.txt
+
+      - uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: --verbose
   test:
     runs-on: ubuntu-latest
     steps:
@@ -21,7 +39,16 @@ jobs:
           python-version: "3.12.4"
 
       - name: Install requirements
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt -r requirements.dev.txt
 
       - name: Test Django
-        run: python src/manage.py test
+        run: |
+          coverage run src/manage.py test
+          coverage xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
