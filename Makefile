@@ -1,9 +1,14 @@
-.PHONY: format  ## Auto-format python source files
-format:
-	ruff check --fix
-	ruff format
+FILES = $(filter-out $@,$(MAKECMDGOALS))
 
-.PHONY: lint  ## Lint python source files
+.PHONY: format ## Auto-format python source files
+format:
+	ruff format $(FILES)
+	ruff check --fix $(FILES)
+
+.PHONY: lint ## Lint python source files
 lint:
-	ruff check
-	ruff format --check
+	ruff check $(FILES)
+	ruff format --check $(FILES)
+
+%:
+	@:
