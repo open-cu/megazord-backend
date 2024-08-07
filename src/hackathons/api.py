@@ -7,7 +7,8 @@ from django.shortcuts import get_object_or_404
 from ninja import File, Router, UploadedFile
 
 from accounts.models import Account
-from auth import AuthBearer
+from megazord.api.auth import AuthBearer
+from megazord.api.requests import APIRequest
 from megazord.settings import SECRET_KEY
 from teams.models import Team, Token
 from teams.schemas import TeamById
@@ -30,8 +31,10 @@ my_hackathon_router = Router(auth=AuthBearer())
     path="/",
     response={201: HackathonSchema, 401: Error, 400: Error},
 )
-def create_hackathon(request, body: HackathonIn, image_cover: UploadedFile = File(...)):
-    user: Account = request.auth
+def create_hackathon(
+    request: APIRequest, body: HackathonIn, image_cover: UploadedFile = File(...)
+):
+    user: Account = request.user
 
     if user.is_organizator:
         body_dict = body.dict()
@@ -79,8 +82,8 @@ def create_hackathon(request, body: HackathonIn, image_cover: UploadedFile = Fil
 @hackathon_router.post(
     path="/join", response={403: Error, 200: HackathonSchema, 401: Error}
 )
-def join_hackathon(request, hackathon_id: int, token: str):
-    user = request.auth
+def join_hackathon(request: APIRequest, hackathon_id: int, token: str):
+    user = request.user
     tkn = get_object_or_404(Token, token=token)
     if not tkn.is_active:
         return 403, {"details": "token in not active"}
@@ -93,9 +96,7 @@ def join_hackathon(request, hackathon_id: int, token: str):
     return 200, hackathon
 
 
-@hackathon_router.get(
-    path="/", response={401: Error, 200: list[HackathonSchema]}
-)
+@hackathon_router.get(path="/", response={401: Error, 200: list[HackathonSchema]})
 def list_hackathons(request):
     hackathons = Hackathon.objects.all()
     return 200, hackathons
@@ -105,8 +106,10 @@ def list_hackathons(request):
     path="/{hackathon_id}/add_user",
     response={201: HackathonSchema, 401: Error, 404: Error, 403: Error, 400: Error},
 )
-def add_user_to_hackathon(request, hackathon_id: int, email_schema: AddUserToHack):
-    me = request.auth
+def add_user_to_hackathon(
+    request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
+):
+    me = request.user
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
     try:
         user_to_add = Account.objects.get(email=email_schema.email)
@@ -144,8 +147,10 @@ def add_user_to_hackathon(request, hackathon_id: int, email_schema: AddUserToHac
     path="/{hackathon_id}/remove_user",
     response={201: HackathonSchema, 401: Error, 404: Error, 403: Error, 400: Error},
 )
-def remove_user_from_hackathon(request, hackathon_id: int, email_schema: AddUserToHack):
-    me = request.auth
+def remove_user_from_hackathon(
+    request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
+):
+    me = request.user
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
     user_to_remove = get_object_or_404(Account, email=email_schema.email)
     if hackathon.creator == me:
@@ -164,9 +169,9 @@ def remove_user_from_hackathon(request, hackathon_id: int, email_schema: AddUser
     path="/{id}",
     response={200: HackathonSchema, 401: Error, 400: Error, 403: Error, 404: Error},
 )
-def edit_hackathons(request, id: int, body: EditHackathon):
+def edit_hackathons(request: APIRequest, id: int, body: EditHackathon):
     hackathon = get_object_or_404(Hackathon, id=id)
-    user = request.auth
+    user = request.user
     if hackathon.creator == user:
         if body.name:
             hackathon.name = body.name
@@ -189,9 +194,9 @@ def edit_hackathons(request, id: int, body: EditHackathon):
     path="/{id}/change_photo",
     response={200: HackathonSchema, 401: Error, 400: Error, 403: Error, 404: Error},
 )
-def change_photo(request, id: int, image_cover: UploadedFile = File(...)):
+def change_photo(request: APIRequest, id: int, image_cover: UploadedFile = File(...)):
     hackathon = get_object_or_404(Hackathon, id=id)
-    user = request.auth
+    user = request.user
     if hackathon.creator == user:
         if image_cover:
             hackathon.image_cover.save(image_cover.name, image_cover)
@@ -204,14 +209,14 @@ def change_photo(request, id: int, image_cover: UploadedFile = File(...)):
     path="/{id}",
     response={200: HackathonSchema, 401: Error, 400: Error, 404: Error},
 )
-def get_specific_hackathon(request, id: int) -> tuple[int, Hackathon]:
+def get_specific_hackathon(request: APIRequest, id: int) -> tuple[int, Hackathon]:
     hackathon = get_object_or_404(Hackathon, id=id)
     return 200, hackathon
 
 
 @my_hackathon_router.get(path="/", response={401: Error, 200: list[HackathonSchema]})
 def list_myhackathons(request):
-    user = request.auth
+    user = request.user
     hackathons = Hackathon.objects.all()
     to_return = []
     for hack in hackathons:
@@ -220,11 +225,9 @@ def list_myhackathons(request):
     return 200, to_return
 
 
-@hackathon_router.get(
-    path="/get_user_team/{id}", response={200: TeamById, 404: Error}
-)
-def get_user_team_in_hackathon(request, id: str):
-    user = request.auth
+@hackathon_router.get(path="/get_user_team/{id}", response={200: TeamById, 404: Error})
+def get_user_team_in_hackathon(request: APIRequest, id: str):
+    user = request.user
     user_id = user.id
     hackathon = get_object_or_404(Hackathon, id=int(id))
     teams = Team.objects.filter(hackathon=hackathon).all()
@@ -253,8 +256,8 @@ def get_user_team_in_hackathon(request, id: str):
 @hackathon_router.get(
     path="/{id}/load_txt", response={200: StatusOK, 403: Error, 404: Error}
 )
-def load_txt(request, id: str, file: UploadedFile = File(...)):
-    me = request.auth
+def load_txt(request: APIRequest, id: str, file: UploadedFile = File(...)):
+    me = request.user
     hackathon = get_object_or_404(Hackathon, id=int(id))
     if me == hackathon.creator:
         return {"details": "you have no access"}

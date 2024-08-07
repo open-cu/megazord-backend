@@ -2,11 +2,11 @@ from datetime import timedelta, datetime, timezone
 
 import jwt
 from django.core.exceptions import ObjectDoesNotExist
-from django.http import HttpRequest
 from ninja.security import HttpBearer
 
 from accounts.models import Account
 from megazord.settings import SECRET_KEY
+from .requests import APIRequest
 
 JWT_ALGORITHM = "HS256"
 
@@ -24,7 +24,7 @@ class BadCredentials(AuthException):
 
 
 class AuthBearer(HttpBearer):
-    def authenticate(self, request: HttpRequest, token: str) -> Account:
+    def authenticate(self, request: APIRequest, token: str) -> str:
         try:
             jwt_data = validate_jwt(token=token)
         except jwt.InvalidTokenError:
@@ -39,7 +39,9 @@ class AuthBearer(HttpBearer):
         except ObjectDoesNotExist:
             raise InvalidToken
 
-        return user
+        request.user = user
+
+        return token
 
 
 def create_jwt(
