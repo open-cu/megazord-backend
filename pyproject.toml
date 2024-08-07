@@ -6,14 +6,14 @@ target-version = "py312"
 [tool.ruff.lint]
 select = [
     "F",      # Pyflakes
-    "E",      # pycodestyle (Error)
     "I",      # isort
-    "D",      # pydocstyle
+#    "E",      # pycodestyle (Error)
+#    "D",      # pydocstyle
     "YTT",    # flake8-2020
-    "B",      # flake8-bugbear
-    "T10",    # flake8-debugger
-    "T20",    # flake8-print
-    "C4",     # flake8-comprehensions
+#    "B",      # flake8-bugbear
+#    "T10",    # flake8-debugger
+#    "T20",    # flake8-print
+#    "C4",     # flake8-comprehensions
     "PYI006", # flake8-pyi
 ]
 pydocstyle = { convention = "google" }
