@@ -16,5 +16,15 @@
 
 ### Add
 
+- Merge 8 to main - ([0be54ec](https://github.com/open-cu/megazord-backend/commit/0be54ecb6ac706759541a9ed015d2ec0bf8a70cf))
+- .env to settings - ([0ba8dbb](https://github.com/open-cu/megazord-backend/commit/0ba8dbb57958ba3c527b2f3f9db60fd537572bda))
+- Funcs for tg reg - ([c7401f3](https://github.com/open-cu/megazord-backend/commit/c7401f36b713974ece7d2fc03c9c3d366989c1a2))
+- Change settings - ([a823a07](https://github.com/open-cu/megazord-backend/commit/a823a074c0d4e972385dc2b8417cbe621dfdec8d))
+- Funcs for tg reg - ([10bca29](https://github.com/open-cu/megazord-backend/commit/10bca29a0eb20c6491a4a61351784eef139f5dab))
+- Change settings - ([c97b4af](https://github.com/open-cu/megazord-backend/commit/c97b4af0d71a2d1fe629687b8543b88141150d33))
 - Initial commit - ([1ce8645](https://github.com/open-cu/megazord-backend/commit/1ce86458151e77b4dfdb4ad4977a7f23768ee1f4))
+
+### DELL
+
+- Info settings.py - ([d386a32](https://github.com/open-cu/megazord-backend/commit/d386a325a7b02cd575dba6f293bea05d70c692bc))
 
