@@ -2,6 +2,8 @@ from django.db import models
 
 from accounts.models import Account
 
+from accounts.models import Email
+
 
 class Hackathon(models.Model):
     creator = models.ForeignKey(
@@ -13,5 +15,6 @@ class Hackathon(models.Model):
     min_participants = models.IntegerField(null=True, default=3)
     max_participants = models.IntegerField(null=True, default=5)
     participants = models.ManyToManyField(
-        Account, related_name="participants", null=True
+        Account, related_name="participants"
     )
+    emails = models.ManyToManyField(Email, related_name="emails")

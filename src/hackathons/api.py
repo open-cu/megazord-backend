@@ -1,10 +1,15 @@
 import logging
 from datetime import datetime
+from typing import Any
 
 import jwt
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
+
 from ninja import File, Router, UploadedFile
+
+import random
 
 from accounts.models import Account
 from auth import AuthBearer
@@ -21,6 +26,7 @@ from .schemas import (
     HackathonSchema,
     StatusOK,
 )
+from accounts.models import Email
 
 hackathon_router = Router(auth=AuthBearer())
 my_hackathon_router = Router(auth=AuthBearer())
@@ -76,23 +82,6 @@ def create_hackathon(request, body: HackathonIn, image_cover: UploadedFile = Fil
     return 403, {"detail": "You are not organizator and you can't create hackathons"}
 
 
-@hackathon_router.post(
-    path="/join", response={403: Error, 200: HackathonSchema, 401: Error}
-)
-def join_hackathon(request, hackathon_id: int, token: str):
-    user = request.auth
-    tkn = get_object_or_404(Token, token=token)
-    if not tkn.is_active:
-        return 403, {"details": "token in not active"}
-    else:
-        tkn.is_active = False
-        tkn.save()
-    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
-    hackathon.participants.add(user)
-    hackathon.save()
-    return 200, hackathon
-
-
 @hackathon_router.get(
     path="/", response={401: Error, 200: list[HackathonSchema]}
 )
@@ -108,36 +97,22 @@ def list_hackathons(request):
 def add_user_to_hackathon(request, hackathon_id: int, email_schema: AddUserToHack):
     me = request.auth
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
-    try:
-        user_to_add = Account.objects.get(email=email_schema.email)
-    except:
-        user_to_add = None
-    if hackathon.creator == me:
-        if user_to_add and hackathon.creator == user_to_add:
-            return 400, {"details": "user is creator hackathon"}
-        encoded_jwt = jwt.encode(
-            {
-                "createdAt": datetime.utcnow().timestamp(),
-                "id": hackathon.id,
-                "email": email_schema.email,
-            },
-            SECRET_KEY,
-            algorithm="HS256",
-        )
-        try:
-            Token.objects.create(token=encoded_jwt, is_active=True)
-            send_mail(
-                f"Приглашение в хакатон {hackathon.name}",
-                f"Вас пригласили на хакатон {hackathon.name} с помощью сервиса для упрощённого набора команд XaXack. Для принятия приглашения перейдите по ссылке:\n https://prod.zotov.dev/join-hackaton?hackathon_id={encoded_jwt}",
-                "noreply@zotov.dev",
-                [email_schema.email],
-                fail_silently=False,
-            )
-        except Exception as e:
-            logging.critical(e)
-        return 201, hackathon
-    else:
+
+    if hackathon.creator != me:
         return 403, {"details": "You are not creator and you can't edit this hackathon"}
+
+    # Проверка, является ли email адресом создателя хакатона
+    if hackathon.creator.email == email_schema.email:
+        return 400, {"details": "user is creator of the hackathon"}
+
+    # Поиск или создание записи email
+    email_obj, created = Email.objects.get_or_create(email=email_schema.email)
+
+    # Добавление email в хакатон
+    hackathon.emails.add(email_obj)
+    hackathon.save()
+
+    return 201, hackathon
 
 
 @hackathon_router.delete(
@@ -286,3 +261,71 @@ def load_txt(request, id: str, file: UploadedFile = File(...)):
             )
         except Exception as e:
             logging.critical(e)
+
+
+@hackathon_router.post(
+    path="/join", response={403: Error, 200: HackathonSchema, 401: Error}
+)
+def join_hackathon(request, hackathon_id: int, token: str):
+    user = request.auth
+    tkn = get_object_or_404(Token, token=token)
+    if not tkn.is_active:
+        return 403, {"details": "token in not active"}
+    else:
+        tkn.is_active = False
+        tkn.save()
+    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+    hackathon.participants.add(user)
+    hackathon.save()
+    return 200, hackathon
+
+
+@hackathon_router.post(
+    path="/{hackathon_id}/send_code",
+    response={200: Any, 400: Error, 404: Error, 403: Error},
+)
+def send_code_to_email(request, hackathon_id: int, email_schema: AddUserToHack):
+    # Получение хакатона по id
+    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+
+    # Проверка, существует ли email в списке emails хакатона
+    email_obj = get_object_or_404(Email, email=email_schema.email)
+
+    if email_obj not in hackathon.emails.all():
+        return {"details": "Email not found in hackathon"}, 404
+
+    # Генерация 6-значного кода
+    confirmation_code = str(random.randint(100000, 999999))
+
+    # Создание JWT для хранения кода подтверждения
+    encoded_jwt = jwt.encode(
+        {
+            "confirmation_code": confirmation_code,
+            "email": email_schema.email,
+            "createdAt": datetime.utcnow().timestamp(),
+        },
+        SECRET_KEY,
+        algorithm="HS256",
+    )
+
+    # Сохранение токена в базе данных
+    try:
+        Token.objects.create(token=encoded_jwt, is_active=True)
+    except Exception as e:
+        logging.critical(e)
+        return {"details": "Failed to create token"}, 500
+
+    # Отправка email с кодом подтверждения
+    try:
+        send_mail(
+            "Ваш код подтверждения",
+            f"Ваш код подтверждения: {confirmation_code}",
+            "noreply@zotov.dev",
+            [email_schema.email],
+            fail_silently=False,
+        )
+    except Exception as e:
+        logging.critical(e)
+        return {"details": "Failed to send email"}, 500
+
+    return {"details": "Confirmation code sent successfully"}, 200

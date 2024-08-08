@@ -44,3 +44,5 @@ def signin(request: HttpRequest, schema: LoginSchema) -> tuple[int, TokenSchema]
 
     token = create_jwt(user_id=account.id)
     return 200, TokenSchema(token=token)
+
+
