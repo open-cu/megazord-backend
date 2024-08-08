@@ -1,5 +1,5 @@
 # Changelog
-## Unreleased - 07.08.2024
+## Unreleased - 08.08.2024
 
 ### Bug Fixes
 
@@ -7,6 +7,7 @@
 
 ### Miscellaneous Tasks
 
+- Use `request.user` for access to current user & add tests for `accounts api` (#14) - ([5959061](https://github.com/open-cu/megazord-backend/commit/59590619e0066d2c085d8d9fe81e5c1298867052))
 - Only changed files checking by linters  (#13) - ([052b880](https://github.com/open-cu/megazord-backend/commit/052b88054e66f6794d111743b27cdfc1c528d13f))
 - Setup code quality checker (#10) - ([117b91c](https://github.com/open-cu/megazord-backend/commit/117b91cf6d68c80be76c6f54f191223fa577ce4d))
 - Replace images in docker-compose - ([abb7201](https://github.com/open-cu/megazord-backend/commit/abb720130724c90bd7ecb70ba2e98862f8f487f9))
