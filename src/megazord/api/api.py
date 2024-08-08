@@ -1,52 +1,39 @@
-from django.db.utils import IntegrityError
+from django.db import IntegrityError
 from django.http import Http404
 from ninja import NinjaAPI
 from ninja.errors import ValidationError
 
 from accounts.api import router as accounts_router
-from auth import InvalidToken, BadCredentials
 from hackathons.api import hackathon_router, my_hackathon_router
 from profiles.api import router as profiles_router
 from projects.api import router as projects_router
 from resumes.api import router as resumes_router
 from teams.api import team_router
 
+from .auth import AuthBearer, BadCredentials, InvalidToken
+
 api = NinjaAPI(title="Team Search", description="API for team search")
 
-api.add_router(
-    prefix="/auth",
-    router=accounts_router,
-    tags=["Auth"]
-)
-api.add_router(
-    prefix="/",
-    router=profiles_router,
-    tags=["Profile"]
-)
+api.add_router(prefix="/auth", router=accounts_router, tags=["Auth"])
+api.add_router(prefix="/", router=profiles_router, tags=["Profile"], auth=AuthBearer())
 api.add_router(
     prefix="/hackathons",
     router=hackathon_router,
-    tags=["Hackathons"]
+    tags=["Hackathons"],
+    auth=AuthBearer(),
 )
 api.add_router(
     prefix="/myhackathons",
     router=my_hackathon_router,
-    tags=["My hackathons"]
+    tags=["My hackathons"],
+    auth=AuthBearer(),
+)
+api.add_router(prefix="/teams", router=team_router, tags=["Teams"], auth=AuthBearer())
+api.add_router(
+    prefix="/projects", router=projects_router, tags=["Projects"], auth=AuthBearer()
 )
 api.add_router(
-    prefix="/teams",
-    router=team_router,
-    tags=["Teams"]
-)
-api.add_router(
-    prefix="/projects",
-    router=projects_router,
-    tags=["Projects"]
-)
-api.add_router(
-    prefix="/resumes",
-    router=resumes_router,
-    tags=["Resumes"]
+    prefix="/resumes", router=resumes_router, tags=["Resumes"], auth=AuthBearer()
 )
 
 
@@ -76,6 +63,7 @@ def bad_credentials(request, exc):
     return api.create_response(
         request, {"details": "Invalid login credentials"}, status=401
     )
+
 
 @api.exception_handler(Http404)
 def handle_404(request, exc):
