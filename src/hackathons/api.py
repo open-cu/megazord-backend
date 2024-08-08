@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from typing import Any
 
 import jwt
 from django.core.mail import send_mail
