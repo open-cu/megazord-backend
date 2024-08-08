@@ -1,5 +1,23 @@
-[tool.black]
+[tool.ruff]
+src = ["src"]
 line-length = 88
+target-version = "py312"
 
-[tool.isort]
-profile = "black"
+[tool.ruff.lint]
+select = [
+    "F",      # Pyflakes
+    "I",      # isort
+#    "E",      # pycodestyle (Error)
+#    "D",      # pydocstyle
+    "YTT",    # flake8-2020
+#    "B",      # flake8-bugbear
+#    "T10",    # flake8-debugger
+#    "T20",    # flake8-print
+#    "C4",     # flake8-comprehensions
+    "PYI006", # flake8-pyi
+]
+pydocstyle = { convention = "google" }
+
+[tool.ruff.format]
+quote-style = "double"
+docstring-code-format = true
