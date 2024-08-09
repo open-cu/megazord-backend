@@ -1,23 +1,19 @@
 import logging
+import random
 from datetime import datetime
 from typing import Any
 
 import jwt
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
-from django.http import JsonResponse
-
 from ninja import File, Router, UploadedFile
 
-import random
-
-from accounts.models import Account
-from megazord.api.auth import AuthBearer
+from accounts.models import Account, Email
 from megazord.api.requests import APIRequest
+from megazord.schemas import ErrorSchema
 from megazord.settings import SECRET_KEY
 from teams.models import Team, Token
 from teams.schemas import TeamById
-
 from .models import Hackathon
 from .schemas import (
     AddUserToHack,
@@ -27,62 +23,68 @@ from .schemas import (
     HackathonSchema,
     StatusOK,
 )
-from accounts.models import Email
 
-hackathon_router = Router(auth=AuthBearer())
-my_hackathon_router = Router(auth=AuthBearer())
+logger = logging.getLogger(__name__)
+
+hackathon_router = Router()
+my_hackathon_router = Router()
+
+INVITE_SUBJECT_TEMPLATE = "Приглашение в хакатон {hackathon_name}"
+INVITE_BODY_TEMPLATE = """Вас пригласили на хакатон {hackathon_name} с помощью сервиса для упрощённого набора команд XaXack.
+ Для принятия приглашения перейдите по ссылке: http://localhost:3000/join-hackaton?hackathon_id={invite_code}"""
 
 
 @hackathon_router.post(
     path="/",
-    response={201: HackathonSchema, 401: Error, 400: Error},
+    response={201: HackathonSchema, 401: ErrorSchema, 400: ErrorSchema},
 )
 def create_hackathon(
-    request: APIRequest, body: HackathonIn, image_cover: UploadedFile = File(...)
+        request: APIRequest, body: HackathonIn, image_cover: UploadedFile = File(...)
 ):
-    user: Account = request.user
+    user = request.user
+    if not user.is_organizator:
+        return 403, {"detail": "You are not organizator and you can't create hackathons"}
 
-    if user.is_organizator:
-        body_dict = body.dict()
-        hackathon = Hackathon(
-            creator=user,
-            name=body_dict["name"],
-            description=body_dict["description"],
-            min_participants=body.min_participants,
-            max_participants=body.max_participants,
+    body_dict = body.dict()
+    hackathon = Hackathon(
+        creator=user,
+        name=body_dict["name"],
+        description=body_dict["description"],
+        min_participants=body.min_participants,
+        max_participants=body.max_participants,
+    )
+    hackathon.save()
+    hackathon.image_cover.save(image_cover.name, image_cover)
+    for participant in body_dict["participants"]:
+        try:
+            participant_acc = Account.objects.get(email=participant)
+        except:
+            participant_acc = None
+        encoded_jwt = jwt.encode(
+            {
+                "createdAt": datetime.utcnow().timestamp(),
+                "id": hackathon.id,
+                "email": participant,
+            },
+            SECRET_KEY,
+            algorithm="HS256",
         )
-        hackathon.save()
-        hackathon.image_cover.save(image_cover.name, image_cover)
-        for participant in body_dict["participants"]:
-            try:
-                participant_acc = Account.objects.get(email=participant)
-            except:
-                participant_acc = None
-            encoded_jwt = jwt.encode(
-                {
-                    "createdAt": datetime.utcnow().timestamp(),
-                    "id": hackathon.id,
-                    "email": participant,
-                },
-                SECRET_KEY,
-                algorithm="HS256",
-            )
 
-            if participant_acc == hackathon.creator:
-                continue
-            try:
-                Token.objects.create(token=encoded_jwt, is_active=True)
-                send_mail(
-                    f"Приглашение в хакатон {hackathon.name}",
-                    f"Вас пригласили на хакатон {hackathon.name} с помощью сервиса для упрощённого набора команд XaXack. Для принятия приглашения перейдите по ссылке:\n https://prod.zotov.dev/join-hackaton?hackathon_id={encoded_jwt}",
-                    "noreply@zotov.dev",
-                    [participant],
-                    fail_silently=False,
-                )
-            except Exception as e:
-                logging.critical(e)
-        return 201, hackathon
-    return 403, {"detail": "You are not organizator and you can't create hackathons"}
+        if participant_acc == hackathon.creator:
+            continue
+        try:
+            Token.objects.create(token=encoded_jwt, is_active=True)
+            logger.info(INVITE_BODY_TEMPLATE.format(hackathon_name=hackathon.name, invite_code=encoded_jwt))
+            send_mail(
+                subject=INVITE_SUBJECT_TEMPLATE.format(hackathon_name=hackathon.name),
+                message=INVITE_BODY_TEMPLATE.format(hackathon_name=hackathon.name, invite_code=encoded_jwt),
+                from_email="noreply@zotov.dev",
+                recipient_list=[participant],
+                fail_silently=False,
+            )
+        except Exception as e:
+            logger.critical(e)
+    return 201, hackathon
 
 
 @hackathon_router.post(
@@ -113,7 +115,7 @@ def list_hackathons(request):
     response={201: HackathonSchema, 401: Error, 404: Error, 403: Error, 400: Error},
 )
 def add_user_to_hackathon(
-    request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
+        request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
 ):
     me = request.user
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
@@ -140,7 +142,7 @@ def add_user_to_hackathon(
     response={201: HackathonSchema, 401: Error, 404: Error, 403: Error, 400: Error},
 )
 def remove_user_from_hackathon(
-    request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
+        request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
 ):
     me = request.user
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
@@ -272,15 +274,16 @@ def load_txt(request: APIRequest, id: str, file: UploadedFile = File(...)):
             continue
         try:
             Token.objects.create(token=encoded_jwt, is_active=True)
+            logger.info(INVITE_BODY_TEMPLATE.format(hackathon_name=hackathon.name, invite_code=encoded_jwt))
             send_mail(
-                f"Приглашение в хакатон {hackathon.name}",
-                f"Вас пригласили на хакатон {hackathon.name} с помощью сервиса для упрощённого набора команд XaXack. Для принятия приглашения перейдите по ссылке:\n https://prod.zotov.dev/join-hackaton?hackathon_id={encoded_jwt}",
-                "noreply@zotov.dev",
-                [i],
+                subject=INVITE_SUBJECT_TEMPLATE.format(hackathon_name=hackathon.name),
+                message=INVITE_BODY_TEMPLATE.format(hackathon_name=hackathon.name, invite_code=encoded_jwt),
+                from_email="noreply@zotov.dev",
+                recipient_list=[i],
                 fail_silently=False,
             )
         except Exception as e:
-            logging.critical(e)
+            logger.critical(e)
 
 
 @hackathon_router.post(
@@ -315,7 +318,7 @@ def send_code_to_email(request, hackathon_id: int, email_schema: AddUserToHack):
     try:
         Token.objects.create(token=encoded_jwt, is_active=True)
     except Exception as e:
-        logging.critical(e)
+        logger.critical(e)
         return {"details": "Failed to create token"}, 500
 
     # Отправка email с кодом подтверждения
@@ -328,7 +331,7 @@ def send_code_to_email(request, hackathon_id: int, email_schema: AddUserToHack):
             fail_silently=False,
         )
     except Exception as e:
-        logging.critical(e)
+        logger.critical(e)
         return {"details": "Failed to send email"}, 500
 
     return {"details": "Confirmation code sent successfully"}, 200
