@@ -90,13 +90,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "megazord.wsgi.application"
 
+
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "megazord",
+        "USER": "megazord_user",
+        "PASSWORD": "megazord_super_user",
+        "HOST": "postgres",
+        "PORT": "5432",
     }
 }
 
@@ -150,6 +155,7 @@ EMAIL_HOST = env.int("EMAIL_HOST", default="smtp.gmail.com")
 EMAIL_PORT = env.int("EMAIL_PORT", default=587)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="email@example.org")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="password")
+
 
 # ACCOUNT_PASSWORD_RESET_CONFIRM = True
 
