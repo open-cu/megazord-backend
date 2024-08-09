@@ -17,6 +17,7 @@
 
 ### Add
 
+- Psycopg2 - ([3f71fb4](https://github.com/open-cu/megazord-backend/commit/3f71fb4babc1630d3dfdbf7f3b3847f809f2ca50))
 - Merge 8 to main - ([0be54ec](https://github.com/open-cu/megazord-backend/commit/0be54ecb6ac706759541a9ed015d2ec0bf8a70cf))
 - .env to settings - ([0ba8dbb](https://github.com/open-cu/megazord-backend/commit/0ba8dbb57958ba3c527b2f3f9db60fd537572bda))
 - Funcs for tg reg - ([c7401f3](https://github.com/open-cu/megazord-backend/commit/c7401f36b713974ece7d2fc03c9c3d366989c1a2))
@@ -28,4 +29,8 @@
 ### DELL
 
 - Info settings.py - ([d386a32](https://github.com/open-cu/megazord-backend/commit/d386a325a7b02cd575dba6f293bea05d70c692bc))
+
+### Update
+
+- Sqlite -> postgresql - ([65722ad](https://github.com/open-cu/megazord-backend/commit/65722adedddab6276e3cba258c7e2fcd0580e81b))
 
