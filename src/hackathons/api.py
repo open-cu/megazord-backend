@@ -14,6 +14,7 @@ from megazord.schemas import ErrorSchema
 from megazord.settings import SECRET_KEY
 from teams.models import Team, Token
 from teams.schemas import TeamById
+
 from .models import Hackathon
 from .schemas import (
     AddUserToHack,
@@ -39,11 +40,13 @@ INVITE_BODY_TEMPLATE = """Вас пригласили на хакатон {hacka
     response={201: HackathonSchema, 401: ErrorSchema, 400: ErrorSchema},
 )
 def create_hackathon(
-        request: APIRequest, body: HackathonIn, image_cover: UploadedFile = File(...)
+    request: APIRequest, body: HackathonIn, image_cover: UploadedFile = File(...)
 ):
     user = request.user
     if not user.is_organizator:
-        return 403, {"detail": "You are not organizator and you can't create hackathons"}
+        return 403, {
+            "detail": "You are not organizator and you can't create hackathons"
+        }
 
     body_dict = body.dict()
     hackathon = Hackathon(
@@ -55,11 +58,20 @@ def create_hackathon(
     )
     hackathon.save()
     hackathon.image_cover.save(image_cover.name, image_cover)
+
     for participant in body_dict["participants"]:
         try:
             participant_acc = Account.objects.get(email=participant)
-        except:
+        except Account.DoesNotExist:
             participant_acc = None
+
+        # Создание или получение объекта Email
+        email_obj, created = Email.objects.get_or_create(email=participant)
+
+        # Добавление email в хакатон
+        hackathon.emails.add(email_obj)
+
+        # Генерация JWT
         encoded_jwt = jwt.encode(
             {
                 "createdAt": datetime.utcnow().timestamp(),
@@ -72,18 +84,26 @@ def create_hackathon(
 
         if participant_acc == hackathon.creator:
             continue
+
         try:
             Token.objects.create(token=encoded_jwt, is_active=True)
-            logger.info(INVITE_BODY_TEMPLATE.format(hackathon_name=hackathon.name, invite_code=encoded_jwt))
+            logger.info(
+                INVITE_BODY_TEMPLATE.format(
+                    hackathon_name=hackathon.name, invite_code=encoded_jwt
+                )
+            )
             send_mail(
                 subject=INVITE_SUBJECT_TEMPLATE.format(hackathon_name=hackathon.name),
-                message=INVITE_BODY_TEMPLATE.format(hackathon_name=hackathon.name, invite_code=encoded_jwt),
+                message=INVITE_BODY_TEMPLATE.format(
+                    hackathon_name=hackathon.name, invite_code=encoded_jwt
+                ),
                 from_email="noreply@zotov.dev",
                 recipient_list=[participant],
                 fail_silently=False,
             )
         except Exception as e:
             logger.critical(e)
+
     return 201, hackathon
 
 
@@ -115,7 +135,7 @@ def list_hackathons(request):
     response={201: HackathonSchema, 401: Error, 404: Error, 403: Error, 400: Error},
 )
 def add_user_to_hackathon(
-        request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
+    request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
 ):
     me = request.user
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
@@ -142,7 +162,7 @@ def add_user_to_hackathon(
     response={201: HackathonSchema, 401: Error, 404: Error, 403: Error, 400: Error},
 )
 def remove_user_from_hackathon(
-        request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
+    request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
 ):
     me = request.user
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
@@ -274,10 +294,16 @@ def load_txt(request: APIRequest, id: str, file: UploadedFile = File(...)):
             continue
         try:
             Token.objects.create(token=encoded_jwt, is_active=True)
-            logger.info(INVITE_BODY_TEMPLATE.format(hackathon_name=hackathon.name, invite_code=encoded_jwt))
+            logger.info(
+                INVITE_BODY_TEMPLATE.format(
+                    hackathon_name=hackathon.name, invite_code=encoded_jwt
+                )
+            )
             send_mail(
                 subject=INVITE_SUBJECT_TEMPLATE.format(hackathon_name=hackathon.name),
-                message=INVITE_BODY_TEMPLATE.format(hackathon_name=hackathon.name, invite_code=encoded_jwt),
+                message=INVITE_BODY_TEMPLATE.format(
+                    hackathon_name=hackathon.name, invite_code=encoded_jwt
+                ),
                 from_email="noreply@zotov.dev",
                 recipient_list=[i],
                 fail_silently=False,

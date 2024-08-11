@@ -4,6 +4,7 @@ from typing import Any, List
 
 import jwt
 from django.core.mail import send_mail
+from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from ninja import Router
 
@@ -480,3 +481,60 @@ def analytics_skills(
 
     most_common_skills = [skill[0] for skill in most_common_skills]
     return 200, {"skills": most_common_skills}
+
+
+@team_router.get(
+    path="/hackathon_summary/{hackathon_id}",
+    response={200: dict},
+)
+def hackathon_summary(request: APIRequest, hackathon_id: int) -> dict:
+    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+
+    # Общее количество команд
+    total_teams = Team.objects.filter(hackathon=hackathon).count()
+
+    # Количество команд с максимальным количеством участников (полные команды)
+    max_participants = hackathon.max_participants
+    full_teams = (
+        Team.objects.filter(hackathon=hackathon)
+        .annotate(num_members=Count("team_members"))
+        .filter(num_members=max_participants)
+        .count()
+    )
+
+    # Процент полных команд
+    percent_full_teams = (full_teams / total_teams) * 100 if total_teams > 0 else 0
+
+    # Список людей без команд
+    participants = hackathon.participants.all()
+    people_without_teams = participants.exclude(
+        id__in=Team.objects.filter(hackathon=hackathon).values_list(
+            "team_members", flat=True
+        )
+    )
+
+    # Количество людей в командах из тех, кто зарегистрировался
+    people_in_teams = (
+        Team.objects.filter(hackathon=hackathon)
+        .values_list("team_members", flat=True)
+        .distinct()
+        .count()
+    )
+
+    # Количество приглашенных людей (по количеству emails в хакатоне)
+    invited_people = hackathon.emails.count()
+
+    # Количество людей, принявших приглашение (по количеству участников)
+    accepted_invite = hackathon.accepted_invite
+
+    return {
+        "total_teams": total_teams,
+        "full_teams": full_teams,
+        "percent_full_teams": percent_full_teams,
+        "people_without_teams": list(
+            people_without_teams.values("id", "email", "username")
+        ),
+        "people_in_teams": people_in_teams,
+        "invited_people": invited_people,
+        "accepted_invite": accepted_invite,
+    }
