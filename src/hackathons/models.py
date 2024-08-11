@@ -1,8 +1,6 @@
 from django.db import models
 
-from accounts.models import Account
-
-from accounts.models import Email
+from accounts.models import Account, Email
 
 
 class Hackathon(models.Model):
@@ -14,7 +12,9 @@ class Hackathon(models.Model):
     description = models.TextField(null=False, default="описание хакатона")
     min_participants = models.IntegerField(null=True, default=3)
     max_participants = models.IntegerField(null=True, default=5)
-    participants = models.ManyToManyField(
-        Account, related_name="participants"
-    )
+    participants = models.ManyToManyField(Account, related_name="participants")
     emails = models.ManyToManyField(Email, related_name="emails")
+
+    @property
+    def accepted_invite(self):
+        return self.participants.count()
