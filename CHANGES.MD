@@ -1,5 +1,5 @@
 # Changelog
-## Unreleased - 09.08.2024
+## Unreleased - 11.08.2024
 
 ### Bug Fixes
 
@@ -17,6 +17,7 @@
 
 ### Add
 
+- Analytics for admins - ([f26ae4b](https://github.com/open-cu/megazord-backend/commit/f26ae4b8215e120692e7ea8c81e0dd486f236b02))
 - Psycopg2 - ([3f71fb4](https://github.com/open-cu/megazord-backend/commit/3f71fb4babc1630d3dfdbf7f3b3847f809f2ca50))
 - Merge 8 to main - ([0be54ec](https://github.com/open-cu/megazord-backend/commit/0be54ecb6ac706759541a9ed015d2ec0bf8a70cf))
 - .env to settings - ([0ba8dbb](https://github.com/open-cu/megazord-backend/commit/0ba8dbb57958ba3c527b2f3f9db60fd537572bda))
