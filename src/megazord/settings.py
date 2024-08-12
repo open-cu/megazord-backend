@@ -48,7 +48,6 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "corsheaders",
-    "flags",
     "hackathons",
     "projects",
     "resumes",
@@ -57,10 +56,6 @@ INSTALLED_APPS = [
     "vacancies",
     "mini_interviews",
 ]
-
-FLAGS = {
-    "SUGGEST_RESUME_PDF": []
-}
 
 AUTH_USER_MODEL = "accounts.Account"
 
@@ -102,12 +97,11 @@ WSGI_APPLICATION = "megazord.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": env("POSTGRES_DB", default="megazord"),
-        "USER": env("POSTGRES_USER", default="megazord_user"),
-        "PASSWORD": env("POSTGRES_PASSWORD", default="megazord_super_user"),
-        "HOST": env("DATABASE_HOST", default="db"),
-        "PORT": env("DATABASE_PORT", default="5432"),
-
+        "NAME": env.str("POSTGRES_DB", default="megazord"),
+        "USER": env.str("POSTGRES_USER", default="megazord_user"),
+        "PASSWORD": env.str("POSTGRES_PASSWORD", default="megazord_super_user"),
+        "HOST": env.str("DATABASE_HOST", default="db"),
+        "PORT": env.int("DATABASE_PORT", default=5432),
     }
 }
 
@@ -157,10 +151,10 @@ EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 
-EMAIL_HOST = env.int("EMAIL_HOST", default="smtp.gmail.com")
+EMAIL_HOST = env.str("EMAIL_HOST", default="smtp.gmail.com")
 EMAIL_PORT = env.int("EMAIL_PORT", default=587)
-EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="email@example.org")
-EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="password")
+EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", default="email@example.org")
+EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", default="password")
 
 # ACCOUNT_PASSWORD_RESET_CONFIRM = True
 
