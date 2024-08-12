@@ -1,30 +1,46 @@
-from typing import Optional, List
+from ninja import ModelSchema, Field, Schema
 
-from ninja import Schema
+from resumes.models import Resume
 
 
-class Resume(Schema):
-    id: Optional[int] = None
-    bio: Optional[str] = None
+class ResumeCreateSchema(ModelSchema):
     hackathon_id: int
-    tech: Optional[List[str]] = None
-    soft: Optional[List[str]] = None
-    github: Optional[str] = ''
-    hh: Optional[str] = ''
-    telegram: Optional[str] = ''
-    personal_website: Optional[str] = ''
-    pdf_link: Optional[str] = ''
+    tech: list[str]
+    soft: list[str]
+
+    class Meta:
+        model = Resume
+        fields = ["bio", "personal_website", "github", "hh", "telegram"]
 
 
-class Error(Schema):
-    details: str
+class ResumeUpdateSchema(ResumeCreateSchema):
+    class Meta:
+        fields_optional = "__all__"
 
 
-class SuggestResumeSchema(Schema):
+class ResumeSchema(ModelSchema):
+    hackathon_id: int = Field(alias="hackathon.id")
+    tech: list[str] = []
+    soft: list[str] = []
+
+    @staticmethod
+    def resolve_tech(obj: Resume) -> list[str]:
+        return [skill.tag_text for skill in obj.hard_skills.all()]
+
+    @staticmethod
+    def resolve_soft(obj: Resume) -> list[str]:
+        return [skill.tag_text for skill in obj.soft_skills.all()]
+
+    class Meta:
+        model = Resume
+        fields = ["id", "bio", "personal_website", "github", "hh", "telegram"]
+
+
+class LinkSchema(Schema):
     link: str
 
 
-class ResumeSuggestion(Schema):
-    bio: Optional[str] = None
-    hards: Optional[List[str]] = None
-    softs: Optional[List[str]] = None
+class ResumeSuggestionSchema(Schema):
+    bio: str | None = None
+    hards: list[str] = []
+    softs: list[str] = []
