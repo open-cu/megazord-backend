@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "corsheaders",
+    "flags",
     "hackathons",
     "projects",
     "resumes",
@@ -56,6 +57,10 @@ INSTALLED_APPS = [
     "vacancies",
     "mini_interviews",
 ]
+
+FLAGS = {
+    "SUGGEST_RESUME_PDF": []
+}
 
 AUTH_USER_MODEL = "accounts.Account"
 
@@ -102,6 +107,7 @@ DATABASES = {
         "PASSWORD": env("POSTGRES_PASSWORD", default="megazord_super_user"),
         "HOST": env("DATABASE_HOST", default="db"),
         "PORT": env("DATABASE_PORT", default="5432"),
+
     }
 }
 
