@@ -139,3 +139,10 @@ class AnalyticsSchema(Schema):
 
 class AnalyticsDiffSchema(Schema):
     average_exp: float
+
+
+class ParticipantOut(Schema):
+    id: int
+    email: str
+    name: str
+    role: str

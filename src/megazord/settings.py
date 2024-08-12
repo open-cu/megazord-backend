@@ -102,11 +102,12 @@ WSGI_APPLICATION = "megazord.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "megazord",
-        "USER": "megazord_user",
-        "PASSWORD": "megazord_super_user",
-        "HOST": "localhost",
-        "PORT": "5432",
+        "NAME": env("POSTGRES_DB", default="megazord"),
+        "USER": env("POSTGRES_USER", default="megazord_user"),
+        "PASSWORD": env("POSTGRES_PASSWORD", default="megazord_super_user"),
+        "HOST": env("DATABASE_HOST", default="db"),
+        "PORT": env("DATABASE_PORT", default="5432"),
+
     }
 }
 
@@ -160,8 +161,10 @@ EMAIL_HOST = env.int("EMAIL_HOST", default="smtp.gmail.com")
 EMAIL_PORT = env.int("EMAIL_PORT", default=587)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="email@example.org")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="password")
-
-
+print(EMAIL_HOST_PASSWORD, EMAIL_HOST_USER)
+print(1)
+print(1)
+print(1)
 # ACCOUNT_PASSWORD_RESET_CONFIRM = True
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
