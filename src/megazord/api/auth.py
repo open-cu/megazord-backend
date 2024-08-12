@@ -24,6 +24,11 @@ class BadCredentials(AuthException):
 
 
 class AuthBearer(HttpBearer):
+    def __call__(self, request: APIRequest):
+        if request.user.is_authenticated:
+            return request.user
+        return super().__call__(request)
+
     def authenticate(self, request: APIRequest, token: str) -> str:
         try:
             jwt_data = validate_jwt(token=token)
