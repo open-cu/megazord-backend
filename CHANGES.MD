@@ -31,7 +31,12 @@
 
 - Info settings.py - ([d386a32](https://github.com/open-cu/megazord-backend/commit/d386a325a7b02cd575dba6f293bea05d70c692bc))
 
+### Fix
+
+- Docker-compose image - ([9141e2a](https://github.com/open-cu/megazord-backend/commit/9141e2a3f72580019b66de5593922ae00a12b29f))
+
 ### Update
 
+- Docker-compose + Add: endpoints for admin - ([676079a](https://github.com/open-cu/megazord-backend/commit/676079a36cb0184b88c8379fbd9711120c5f0302))
 - Sqlite -> postgresql - ([65722ad](https://github.com/open-cu/megazord-backend/commit/65722adedddab6276e3cba258c7e2fcd0580e81b))
 
