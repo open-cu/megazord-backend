@@ -31,6 +31,10 @@
 
 - Info settings.py - ([d386a32](https://github.com/open-cu/megazord-backend/commit/d386a325a7b02cd575dba6f293bea05d70c692bc))
 
+### Del
+
+- Unnecessary from settings.py - ([dfaa346](https://github.com/open-cu/megazord-backend/commit/dfaa3469fddabb6019762282d4ef8218808f7912))
+
 ### Fix
 
 - Docker-compose image - ([9141e2a](https://github.com/open-cu/megazord-backend/commit/9141e2a3f72580019b66de5593922ae00a12b29f))
