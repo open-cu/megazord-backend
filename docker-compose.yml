@@ -3,7 +3,10 @@ name: "megazord"
 
 services:
   backend:
-    image: ghcr.io/open-cu/megazord-backend:${BACKEND_IMAGE_TAG:-main}
+#    image: ghcr.io/open-cu/megazord-backend:${BACKEND_IMAGE_TAG:-main}
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     environment:
@@ -13,11 +16,9 @@ services:
       - EMAIL_PORT=${EMAIL_PORT:-587}
       - EMAIL_HOST_USER=${EMAIL_HOST_USER}
       - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
-
-#    environment:
-#      - DATABASE_URL=postgres://user:password@db:5432/exampledb
-#    depends_on:
-#      - db
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      - db
 
   frontend:
     image: ghcr.io/open-cu/megazord-frontend:${FRONTEND_IMAGE_TAG:-main}
@@ -27,14 +28,14 @@ services:
       - VITE_API_CLIENT=${VITE_API_CLIENT:-http://localhost:8000/api}
       - VITE_BACKEND_URL=${VITE_BACKEND_URL:-http://localhost:8000}
 
-#  db:
-#    image: postgres:latest
-#    environment:
-#      POSTGRES_DB: exampledb
-#      POSTGRES_USER: user
-#      POSTGRES_PASSWORD: password
-#    volumes:
-#      - db-data:/var/lib/postgresql/data
+  db:
+    image: postgres:16
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
 
-#volumes:
-#  db-data:
+volumes:
+  db-data:

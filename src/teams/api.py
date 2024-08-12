@@ -23,6 +23,7 @@ from .schemas import (
     AnalyticsSchema,
     ApplierSchema,
     Error,
+    ParticipantOut,
     SkillsAnalytics,
     Successful,
     TeamById,
@@ -538,3 +539,51 @@ def hackathon_summary(request: APIRequest, hackathon_id: int) -> dict:
         "invited_people": invited_people,
         "accepted_invite": accepted_invite,
     }
+
+
+@team_router.get(
+    "/hackathon/{hackathon_id}/participants_without_team", response=List[ParticipantOut]
+)
+def participants_without_team(request, hackathon_id: int):
+    # Получаем хакатон по id
+    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+
+    # Получаем список всех участников хакатона
+    all_participants = hackathon.participants.all()
+
+    # Получаем список всех участников, которые входят в команды
+    participants_in_teams = Account.objects.filter(
+        team_members__hackathon=hackathon
+    ).distinct()
+
+    # Вычисляем участников, которые не входят в команды
+    participants_without_team = all_participants.exclude(id__in=participants_in_teams)
+
+    # Возвращаем список участников без команды с именем, ролью и id
+    return [
+        ParticipantOut(
+            id=participant.id,
+            email=participant.email,
+            name=participant.username,
+            role="organizer" if participant.is_organizator else "user",
+        )
+        for participant in participants_without_team
+    ]
+
+
+@team_router.get("/hackathon/{hackathon_id}/pending_invitations", response=List[str])
+def pending_invitations(request, hackathon_id: int):
+    # Получаем хакатон по id
+    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+
+    # Получаем все email-адреса, которые были приглашены на хакатон
+    invited_emails = hackathon.emails.values_list("email", flat=True)
+
+    # Получаем список email-адресов участников, которые уже присоединились к хакатону
+    joined_emails = hackathon.participants.values_list("email", flat=True)
+
+    # Вычисляем email-адреса, которые были приглашены, но еще не присоединились
+    pending_emails = set(invited_emails) - set(joined_emails)
+
+    # Возвращаем список email-адресов, которые еще не присоединились к хакатону
+    return list(pending_emails)

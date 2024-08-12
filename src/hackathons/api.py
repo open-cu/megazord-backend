@@ -11,7 +11,7 @@ from ninja import File, Router, UploadedFile
 from accounts.models import Account, Email
 from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema
-from megazord.settings import SECRET_KEY
+from megazord.settings import EMAIL_HOST_USER, SECRET_KEY
 from teams.models import Team, Token
 from teams.schemas import TeamById
 
@@ -153,6 +153,34 @@ def add_user_to_hackathon(
     # Добавление email в хакатон
     hackathon.emails.add(email_obj)
     hackathon.save()
+
+    # Создание JWT токена для приглашения
+    encoded_jwt = jwt.encode(
+        {
+            "createdAt": datetime.utcnow().timestamp(),
+            "hackathon_id": hackathon.id,
+            "email": email_schema.email,
+        },
+        SECRET_KEY,
+        algorithm="HS256",
+    )
+
+    if email_schema.email == hackathon.creator.email:
+        return 400, {"details": "user is creator of the hackathon"}
+
+    try:
+        Token.objects.create(token=encoded_jwt, is_active=True)
+        send_mail(
+            subject=INVITE_SUBJECT_TEMPLATE.format(hackathon_name=hackathon.name),
+            message=INVITE_BODY_TEMPLATE.format(
+                hackathon_name=hackathon.name, invite_code=encoded_jwt
+            ),
+            from_email=EMAIL_HOST_USER,
+            recipient_list=[email_schema.email],
+            fail_silently=False,
+        )
+    except Exception as e:
+        return 500, {"details": f"Failed to send email: {str(e)}"}
 
     return 201, hackathon
 
