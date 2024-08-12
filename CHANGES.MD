@@ -37,6 +37,7 @@
 
 ### Fix
 
+- Environment - ([47aa38d](https://github.com/open-cu/megazord-backend/commit/47aa38d0938f61c71b613d881b9312689995bf6d))
 - Docker-compose image - ([9141e2a](https://github.com/open-cu/megazord-backend/commit/9141e2a3f72580019b66de5593922ae00a12b29f))
 
 ### Update
