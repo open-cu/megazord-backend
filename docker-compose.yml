@@ -42,6 +42,8 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-megazord}
       - POSTGRES_USER=${POSTGRES_USER:-megazord_user}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-megazord_super_user}
+    ports:
+      - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
     networks:
