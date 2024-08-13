@@ -30,10 +30,10 @@ logging.basicConfig(level=logging.DEBUG)
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-%+t6seqzc!0=*wg_u6h-h!y@44qk6*g%^@ueexxh!n9b@o*1)e"
+SECRET_KEY = env.str("SECRET_KEY", "secret")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env.bool("DJANGO_DEBUG", False)
 
 ALLOWED_HOSTS = ["*"]
 CORS_ALLOW_ALL_ORIGINS = True
