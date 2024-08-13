@@ -1,6 +1,8 @@
+import csv
 import logging
 import random
 from datetime import datetime
+from io import StringIO
 from typing import Any
 
 import jwt
@@ -132,7 +134,14 @@ def list_hackathons(request):
 
 @hackathon_router.post(
     path="/{hackathon_id}/add_user",
-    response={201: HackathonSchema, 401: Error, 404: Error, 403: Error, 400: Error},
+    response={
+        201: HackathonSchema,
+        401: Error,
+        404: Error,
+        403: Error,
+        400: Error,
+        500: Error,
+    },
 )
 def add_user_to_hackathon(
     request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
@@ -389,3 +398,43 @@ def send_code_to_email(request, hackathon_id: int, email_schema: AddUserToHack):
         return {"details": "Failed to send email"}, 500
 
     return {"details": "Confirmation code sent successfully"}, 200
+
+
+@hackathon_router.post(
+    path="/{hackathon_id}/upload_emails",
+    response={200: StatusOK, 400: Error, 404: Error, 403: Error},
+)
+def upload_emails_to_hackathon(
+    request: APIRequest, hackathon_id: int, csv_file: UploadedFile = File(...)
+):
+    user = request.user
+    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+
+    # Проверка, является ли пользователь создателем хакатона
+    if hackathon.creator != user:
+        return 403, {"details": "You are not the creator or cannot edit this hackathon"}
+
+    try:
+        # Чтение и парсинг CSV файла
+        file_data = csv_file.read().decode(
+            "utf-8-sig"
+        )  # Используем 'utf-8-sig' для удаления BOM
+        csv_reader = csv.reader(StringIO(file_data))
+
+        for row in csv_reader:
+            email = row[
+                0
+            ].strip()  # Предполагается, что email находится в первом столбце
+            # Создание или получение объекта Email
+            email_obj, created = Email.objects.get_or_create(email=email)
+
+            # Добавление email в хакатон
+            hackathon.emails.add(email_obj)
+
+        hackathon.save()
+
+    except Exception as e:
+        logger.critical(f"Failed to process CSV file: {str(e)}")
+        return 400, {"details": "Failed to process CSV file"}
+
+    return 200, {"details": "Emails successfully uploaded"}
