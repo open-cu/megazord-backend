@@ -7,6 +7,7 @@
 
 ### Bug Fixes
 
+- Security vulnerabilities (#29) - ([389721b](https://github.com/open-cu/megazord-backend/commit/389721b3f1ab753f16526a0c84fa5a0074356fd0))
 - Remove unrecognized import that crashes app - ([05dd84a](https://github.com/open-cu/megazord-backend/commit/05dd84a8b0a1ce38f6c470b6f9945d072454968d))
 
 ### Miscellaneous Tasks
