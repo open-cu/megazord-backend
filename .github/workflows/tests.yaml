@@ -61,7 +61,7 @@ jobs:
       - name: Test Django
         env:
           DEBUG: True
-          DATABASE_HOST: postgres
+          DATABASE_HOST: localhost
           POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
           POSTGRES_USER: ${{ env.POSTGRES_USER }}
           POSTGRES_DB: ${{ env.POSTGRES_DB }}
