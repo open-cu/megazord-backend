@@ -29,6 +29,23 @@ jobs:
           extra_args: --verbose
   test:
     runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: megazord
+
+    services:
+      postgres:
+        image: postgres:16
+
+        env:
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+
+        ports:
+          - 5432:5432
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -42,8 +59,14 @@ jobs:
         run: pip install -r requirements.txt -r requirements.dev.txt
 
       - name: Test Django
+        env:
+          DEBUG: True
+          DATABASE_HOST: postgres
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
         run: |
-          coverage run src/manage.py test
+          coverage run src/manage.py test src/
           coverage xml
 
       - name: Upload coverage to Codecov
