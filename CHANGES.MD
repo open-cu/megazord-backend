@@ -1,5 +1,9 @@
 # Changelog
-## Unreleased - 12.08.2024
+## Unreleased - 13.08.2024
+
+### Features
+
+- Ability to leave team (#27) - ([6575d0f](https://github.com/open-cu/megazord-backend/commit/6575d0f38ea4ffe240820a9a687c5f50adf244aa))
 
 ### Bug Fixes
 
