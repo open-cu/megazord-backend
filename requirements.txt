@@ -42,3 +42,4 @@ django-environ==0.11.2
 psycopg2-binary==2.9.9
 faker==26.3.0
 django-flags==5.0.13
+django-mail-templated==2.6.5
