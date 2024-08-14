@@ -1,8 +1,9 @@
 # Changelog
-## Unreleased - 13.08.2024
+## Unreleased - 14.08.2024
 
 ### Features
 
+- Upload csv emails on hackathon creation (#37) - ([7ce890d](https://github.com/open-cu/megazord-backend/commit/7ce890d02cfa3b1fc97f372c3d22b79e5e5d51ea))
 - Ability to leave team (#27) - ([6575d0f](https://github.com/open-cu/megazord-backend/commit/6575d0f38ea4ffe240820a9a687c5f50adf244aa))
 
 ### Bug Fixes
