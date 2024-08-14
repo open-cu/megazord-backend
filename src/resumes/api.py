@@ -66,7 +66,7 @@ def edit_resume(request: APIRequest, update_schema: ResumeUpdateSchema) -> Resum
         Resume,
         user=request.user,
         hackathon_id=update_schema.hackathon_id,
-        hackathon_status=Hackathon.Status.STARTED,
+        hackathon__status=Hackathon.Status.STARTED,
     )
     updated_fields = update_schema.dict(
         exclude_unset=True, exclude=["hackathon_id", "tech", "soft"]
