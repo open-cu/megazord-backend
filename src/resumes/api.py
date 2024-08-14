@@ -9,40 +9,41 @@ from faker import Faker
 from flags.decorators import flag_check
 from gigachat import GigaChat
 from gigachat.exceptions import GigaChatException
-from gigachat.models import MessagesRole, Messages, Chat
+from gigachat.models import Chat, Messages, MessagesRole
 from github import Github, GithubException
-from ninja import Router, UploadedFile, File
+from ninja import File, Router, UploadedFile
 from pypdf import PdfReader
 
 from hackathons.models import Hackathon
 from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema
+
 from .models import Resume
 from .schemas import (
+    LinkSchema,
     ResumeCreateSchema,
     ResumeSchema,
-    ResumeUpdateSchema,
     ResumeSuggestionSchema,
-    LinkSchema
+    ResumeUpdateSchema,
 )
 
 router = Router()
 
 
 @router.post(
-    path="/create/custom",
-    response={201: ResumeSchema, ERROR_CODES: ErrorSchema}
+    path="/create/custom", response={201: ResumeSchema, ERROR_CODES: ErrorSchema}
 )
 def create_custom_resume(
-        request: APIRequest,
-        create_schema: ResumeCreateSchema
+    request: APIRequest, create_schema: ResumeCreateSchema
 ) -> tuple[int, Resume]:
-    hackathon = get_object_or_404(Hackathon, id=create_schema.hackathon_id)
+    hackathon = get_object_or_404(
+        Hackathon, id=create_schema.hackathon_id, status=Hackathon.Status.STARTED
+    )
     resume = Resume.objects.create(
         hackathon=hackathon,
         user=request.user,
-        **create_schema.dict(exclude=["hackathon_id", "tech", "soft"])
+        **create_schema.dict(exclude=["hackathon_id", "tech", "soft"]),
     )
     for soft in create_schema.soft:
         resume.soft_skills.create(tag_text=soft)
@@ -52,23 +53,24 @@ def create_custom_resume(
     return 201, resume
 
 
-@router.get(
-    path="/get",
-    response={200: ResumeSchema, ERROR_CODES: ErrorSchema}
-)
+@router.get(path="/get", response={200: ResumeSchema, ERROR_CODES: ErrorSchema})
 def get_resume(request: APIRequest, hackathon_id: int, user_id: int) -> Resume:
     resume = get_object_or_404(Resume, user=user_id, hackathon_id=hackathon_id)
 
     return resume
 
 
-@router.patch(
-    path="/edit",
-    response={200: ResumeSchema, ERROR_CODES: ErrorSchema}
-)
+@router.patch(path="/edit", response={200: ResumeSchema, ERROR_CODES: ErrorSchema})
 def edit_resume(request: APIRequest, update_schema: ResumeUpdateSchema) -> Resume:
-    resume = get_object_or_404(Resume, user=request.user, hackathon_id=update_schema.hackathon_id)
-    updated_fields = update_schema.dict(exclude_unset=True, exclude=["hackathon_id", "tech", "soft"])
+    resume = get_object_or_404(
+        Resume,
+        user=request.user,
+        hackathon_id=update_schema.hackathon_id,
+        hackathon_status=Hackathon.Status.STARTED,
+    )
+    updated_fields = update_schema.dict(
+        exclude_unset=True, exclude=["hackathon_id", "tech", "soft"]
+    )
     for attr, value in updated_fields.items():
         setattr(resume, attr, value)
     resume.save()
@@ -85,7 +87,7 @@ def edit_resume(request: APIRequest, update_schema: ResumeUpdateSchema) -> Resum
 
 @router.post(
     "/suggest-resume-github",
-    response={200: ResumeSuggestionSchema, ERROR_CODES: ErrorSchema}
+    response={200: ResumeSuggestionSchema, ERROR_CODES: ErrorSchema},
 )
 def suggest_resume_github(request: APIRequest, link_schema: LinkSchema):
     if match := re.search(pattern=r"/github\.com/([^/]+)", string=link_schema.link):
@@ -102,24 +104,18 @@ def suggest_resume_github(request: APIRequest, link_schema: LinkSchema):
 
     languages = {repo.language for repo in repos if repo.language}
 
-    return ResumeSuggestionSchema(
-        bio=gh_user.bio,
-        hards=list(languages)
-    )
+    return ResumeSuggestionSchema(bio=gh_user.bio, hards=list(languages))
 
 
 @router.post(
     path="/suggest-resume-hh",
-    response={200: ResumeSuggestionSchema, ERROR_CODES: ErrorSchema}
+    response={200: ResumeSuggestionSchema, ERROR_CODES: ErrorSchema},
 )
-def suggest_resume_hh(request: APIRequest, link_schema: LinkSchema) -> ResumeSuggestionSchema:
-    headers = {
-        "user-agent": Faker().user_agent()
-    }
-    response = requests.get(
-        url=link_schema.link,
-        headers=headers
-    )
+def suggest_resume_hh(
+    request: APIRequest, link_schema: LinkSchema
+) -> ResumeSuggestionSchema:
+    headers = {"user-agent": Faker().user_agent()}
+    response = requests.get(url=link_schema.link, headers=headers)
     if response.status_code != 200:
         raise Http404
 
@@ -128,16 +124,13 @@ def suggest_resume_hh(request: APIRequest, link_schema: LinkSchema) -> ResumeSug
     skills_table = soup.find("div", {"data-qa": "skills-table"})
     skills = skills_table.find_all("span", {"data-qa": "bloko-tag__text"})
 
-    return ResumeSuggestionSchema(
-        bio=bio,
-        hards=[skill.text for skill in skills]
-    )
+    return ResumeSuggestionSchema(bio=bio, hards=[skill.text for skill in skills])
 
 
 @router.post(
     path="/suggest-resume-pdf",
     response={200: ResumeSuggestionSchema, ERROR_CODES: ErrorSchema},
-    include_in_schema=False
+    include_in_schema=False,
 )
 @flag_check("SUGGEST_RESUME_PDF", True)
 def suggest_resume_pdf(request: APIRequest, pdf: UploadedFile = File(...)):
@@ -151,10 +144,10 @@ def suggest_resume_pdf(request: APIRequest, pdf: UploadedFile = File(...)):
                 Messages(
                     role=MessagesRole.USER,
                     content="Я тебе предоствалю резюме, тебе нужно вычленить из него хард-скилы, софт-скилы, bio. "
-                            f"Резюме: {text} Результат верни в формате JSON-списка без каких-либо пояснений, "
-                            "например, {\"bio\": \"bio\", \"hards\": [\"skill1\"], \"softs\": [\"skill1\"]}. "
-                            "Не повторяй фразы из примера и не дублируй фразы. "
-                            "Напиши кратко, только самое основное (не больше 2000 символов).",
+                    f"Резюме: {text} Результат верни в формате JSON-списка без каких-либо пояснений, "
+                    'например, {"bio": "bio", "hards": ["skill1"], "softs": ["skill1"]}. '
+                    "Не повторяй фразы из примера и не дублируй фразы. "
+                    "Напиши кратко, только самое основное (не больше 2000 символов).",
                 )
             ],
             max_tokens=512,

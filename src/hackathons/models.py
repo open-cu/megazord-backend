@@ -4,10 +4,16 @@ from accounts.models import Account, Email
 
 
 class Hackathon(models.Model):
+    class Status(models.TextChoices):
+        NOT_STARTED = "NOT_STARTED"
+        STARTED = "STARTED"
+        ENDED = "ENDED"
+
     creator = models.ForeignKey(
         Account, on_delete=models.CASCADE, related_name="creator"
     )
     name = models.CharField(max_length=200, null=False)
+    status = models.CharField(choices=Status, default=Status.NOT_STARTED)
     image_cover = models.ImageField(upload_to="hackathon_images/", null=True)
     description = models.TextField(null=False, default="описание хакатона")
     min_participants = models.IntegerField(null=True, default=3)
