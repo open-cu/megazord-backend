@@ -1,14 +1,21 @@
-from typing import List, Optional
+from enum import StrEnum
 
 from ninja import Schema
 
 from profiles.schemas import ProfileSchema
 
 
+class HackathonStatus(StrEnum):
+    NOT_STARTED = "NOT_STARTED"
+    STARTED = "STARTED"
+    ENDED = "ENDED"
+
+
 class HackathonSchema(Schema):
     id: int
     creator_id: int
     name: str
+    status: HackathonStatus
     image_cover: str
     description: str
     min_participants: int | None

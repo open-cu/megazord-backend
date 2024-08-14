@@ -1,8 +1,6 @@
-import csv
 import logging
 import random
 from datetime import datetime
-from io import StringIO
 from typing import Any
 
 import jwt
@@ -11,11 +9,13 @@ from django.shortcuts import get_object_or_404
 from ninja import File, Router, UploadedFile
 
 from accounts.models import Account, Email
+from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema
 from megazord.settings import EMAIL_HOST_USER, SECRET_KEY
 from teams.models import Team, Token
 from teams.schemas import TeamById
+
 from .models import Hackathon
 from .schemas import (
     AddUserToHack,
@@ -42,10 +42,10 @@ INVITE_BODY_TEMPLATE = """Вас пригласили на хакатон {hacka
     response={201: HackathonSchema, 401: ErrorSchema, 400: ErrorSchema},
 )
 def create_hackathon(
-        request: APIRequest,
-        body: HackathonIn,
-        image_cover: UploadedFile = File(...),
-        csv_emails: UploadedFile = File(...)
+    request: APIRequest,
+    body: HackathonIn,
+    image_cover: UploadedFile = File(),
+    csv_emails: UploadedFile = File(default=None),
 ):
     user = request.user
     if not user.is_organizator:
@@ -62,53 +62,17 @@ def create_hackathon(
     hackathon.save()
     hackathon.image_cover.save(image_cover.name, image_cover)
 
-    csv_participants = get_emails_from_csv(file=csv_emails)
-    participants = set(body.participants) | set(csv_participants)
+    participants = set(body.participants)
+    if csv_emails is not None:
+        csv_participants = get_emails_from_csv(file=csv_emails)
+        participants |= set(csv_participants)
 
     for participant in participants:
-        try:
-            participant_acc = Account.objects.get(email=participant)
-        except Account.DoesNotExist:
-            participant_acc = None
-
         # Создание или получение объекта Email
         email_obj, created = Email.objects.get_or_create(email=participant)
 
         # Добавление email в хакатон
         hackathon.emails.add(email_obj)
-
-        # Генерация JWT
-        encoded_jwt = jwt.encode(
-            {
-                "createdAt": datetime.utcnow().timestamp(),
-                "id": hackathon.id,
-                "email": participant,
-            },
-            SECRET_KEY,
-            algorithm="HS256",
-        )
-
-        if participant_acc == hackathon.creator:
-            continue
-
-        try:
-            Token.objects.create(token=encoded_jwt, is_active=True)
-            logger.info(
-                INVITE_BODY_TEMPLATE.format(
-                    hackathon_name=hackathon.name, invite_code=encoded_jwt
-                )
-            )
-            send_mail(
-                subject=INVITE_SUBJECT_TEMPLATE.format(hackathon_name=hackathon.name),
-                message=INVITE_BODY_TEMPLATE.format(
-                    hackathon_name=hackathon.name, invite_code=encoded_jwt
-                ),
-                from_email="noreply@zotov.dev",
-                recipient_list=[participant],
-                fail_silently=False,
-            )
-        except Exception as e:
-            logger.critical(e)
 
     return 201, hackathon
 
@@ -124,7 +88,9 @@ def join_hackathon(request: APIRequest, hackathon_id: int, token: str):
     else:
         tkn.is_active = False
         tkn.save()
-    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+    hackathon = get_object_or_404(
+        Hackathon, id=hackathon_id, status=Hackathon.Status.STARTED
+    )
     hackathon.participants.add(user)
     hackathon.save()
     return 200, hackathon
@@ -148,7 +114,7 @@ def list_hackathons(request):
     },
 )
 def add_user_to_hackathon(
-        request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
+    request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
 ):
     me = request.user
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
@@ -203,7 +169,7 @@ def add_user_to_hackathon(
     response={201: HackathonSchema, 401: Error, 404: Error, 403: Error, 400: Error},
 )
 def remove_user_from_hackathon(
-        request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
+    request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
 ):
     me = request.user
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
@@ -308,51 +274,6 @@ def get_user_team_in_hackathon(request: APIRequest, id: str):
         return 404, {"details": "Not found"}
 
 
-@hackathon_router.get(
-    path="/{id}/load_txt", response={200: StatusOK, 403: Error, 404: Error}
-)
-def load_txt(request: APIRequest, id: str, file: UploadedFile = File(...)):
-    me = request.user
-    hackathon = get_object_or_404(Hackathon, id=int(id))
-    if me == hackathon.creator:
-        return {"details": "you have no access"}
-    for n, i in enumerate(file):
-        try:
-            participant_acc = Account.objects.get(email=i)
-        except:
-            participant_acc = None
-        encoded_jwt = jwt.encode(
-            {
-                "num": n,
-                "createdAt": datetime.utcnow().timestamp(),
-                "id": hackathon.id,
-                "email": i,
-            },
-            SECRET_KEY,
-            algorithm="HS256",
-        )
-        if participant_acc == hackathon.creator:
-            continue
-        try:
-            Token.objects.create(token=encoded_jwt, is_active=True)
-            logger.info(
-                INVITE_BODY_TEMPLATE.format(
-                    hackathon_name=hackathon.name, invite_code=encoded_jwt
-                )
-            )
-            send_mail(
-                subject=INVITE_SUBJECT_TEMPLATE.format(hackathon_name=hackathon.name),
-                message=INVITE_BODY_TEMPLATE.format(
-                    hackathon_name=hackathon.name, invite_code=encoded_jwt
-                ),
-                from_email="noreply@zotov.dev",
-                recipient_list=[i],
-                fail_silently=False,
-            )
-        except Exception as e:
-            logger.critical(e)
-
-
 @hackathon_router.post(
     path="/{hackathon_id}/send_code",
     response={200: Any, 400: Error, 404: Error, 403: Error},
@@ -409,7 +330,7 @@ def send_code_to_email(request, hackathon_id: int, email_schema: AddUserToHack):
     response={200: StatusOK, 400: Error, 404: Error, 403: Error},
 )
 def upload_emails_to_hackathon(
-        request: APIRequest, hackathon_id: int, csv_file: UploadedFile = File(...)
+    request: APIRequest, hackathon_id: int, csv_file: UploadedFile = File(...)
 ):
     user = request.user
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
@@ -434,3 +355,68 @@ def upload_emails_to_hackathon(
         return 400, {"details": "Failed to process CSV file"}
 
     return 200, {"details": "Emails successfully uploaded"}
+
+
+@hackathon_router.post(
+    path="/{hackathon_id}/start",
+    response={200: StatusOK, ERROR_CODES: ErrorSchema},
+)
+def start_hackathon(request: APIRequest, hackathon_id: int):
+    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+    if hackathon.creator != request.user:
+        return 403, ErrorSchema(
+            detail="You are not the creator or cannot edit this hackathon"
+        )
+
+    hackathon.status = Hackathon.Status.STARTED
+    hackathon.save()
+
+    for participant in hackathon.emails.all():
+        participant_email = participant.email
+        encoded_jwt = jwt.encode(
+            {
+                "createdAt": datetime.now().timestamp(),
+                "id": hackathon.id,
+                "email": participant_email,
+            },
+            SECRET_KEY,
+            algorithm="HS256",
+        )
+
+        try:
+            Token.objects.create(token=encoded_jwt, is_active=True)
+            logger.info(
+                INVITE_BODY_TEMPLATE.format(
+                    hackathon_name=hackathon.name, invite_code=encoded_jwt
+                )
+            )
+            send_mail(
+                subject=INVITE_SUBJECT_TEMPLATE.format(hackathon_name=hackathon.name),
+                message=INVITE_BODY_TEMPLATE.format(
+                    hackathon_name=hackathon.name, invite_code=encoded_jwt
+                ),
+                from_email=None,
+                recipient_list=[participant_email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            logger.critical(e)
+
+    return 200, StatusOK()
+
+
+@hackathon_router.post(
+    path="/{hackathon_id}/end",
+    response={200: StatusOK, ERROR_CODES: ErrorSchema},
+)
+def end_hackathon(request: APIRequest, hackathon_id: int):
+    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+    if hackathon.creator != request.user:
+        return 403, ErrorSchema(
+            detail="You are not the creator or cannot edit this hackathon"
+        )
+
+    hackathon.status = Hackathon.Status.ENDED
+    hackathon.save()
+
+    return 200, StatusOK()
