@@ -16,7 +16,6 @@ from megazord.schemas import ErrorSchema
 from megazord.settings import EMAIL_HOST_USER, SECRET_KEY
 from teams.models import Team, Token
 from teams.schemas import TeamById
-
 from .models import Hackathon
 from .schemas import (
     AddUserToHack,
@@ -26,6 +25,7 @@ from .schemas import (
     HackathonSchema,
     StatusOK,
 )
+from .services import get_emails_from_csv
 
 logger = logging.getLogger(__name__)
 
@@ -42,26 +42,30 @@ INVITE_BODY_TEMPLATE = """Вас пригласили на хакатон {hacka
     response={201: HackathonSchema, 401: ErrorSchema, 400: ErrorSchema},
 )
 def create_hackathon(
-    request: APIRequest, body: HackathonIn, image_cover: UploadedFile = File(...)
+        request: APIRequest,
+        body: HackathonIn,
+        image_cover: UploadedFile = File(...),
+        csv_emails: UploadedFile = File(...)
 ):
     user = request.user
     if not user.is_organizator:
         return 403, {
             "detail": "You are not organizator and you can't create hackathons"
         }
-
-    body_dict = body.dict()
     hackathon = Hackathon(
         creator=user,
-        name=body_dict["name"],
-        description=body_dict["description"],
+        name=body.name,
+        description=body.description,
         min_participants=body.min_participants,
         max_participants=body.max_participants,
     )
     hackathon.save()
     hackathon.image_cover.save(image_cover.name, image_cover)
 
-    for participant in body_dict["participants"]:
+    csv_participants = get_emails_from_csv(file=csv_emails)
+    participants = set(body.participants) | set(csv_participants)
+
+    for participant in participants:
         try:
             participant_acc = Account.objects.get(email=participant)
         except Account.DoesNotExist:
@@ -144,7 +148,7 @@ def list_hackathons(request):
     },
 )
 def add_user_to_hackathon(
-    request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
+        request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
 ):
     me = request.user
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
@@ -199,7 +203,7 @@ def add_user_to_hackathon(
     response={201: HackathonSchema, 401: Error, 404: Error, 403: Error, 400: Error},
 )
 def remove_user_from_hackathon(
-    request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
+        request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
 ):
     me = request.user
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
@@ -405,7 +409,7 @@ def send_code_to_email(request, hackathon_id: int, email_schema: AddUserToHack):
     response={200: StatusOK, 400: Error, 404: Error, 403: Error},
 )
 def upload_emails_to_hackathon(
-    request: APIRequest, hackathon_id: int, csv_file: UploadedFile = File(...)
+        request: APIRequest, hackathon_id: int, csv_file: UploadedFile = File(...)
 ):
     user = request.user
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
@@ -415,16 +419,8 @@ def upload_emails_to_hackathon(
         return 403, {"details": "You are not the creator or cannot edit this hackathon"}
 
     try:
-        # Чтение и парсинг CSV файла
-        file_data = csv_file.read().decode(
-            "utf-8-sig"
-        )  # Используем 'utf-8-sig' для удаления BOM
-        csv_reader = csv.reader(StringIO(file_data))
-
-        for row in csv_reader:
-            email = row[
-                0
-            ].strip()  # Предполагается, что email находится в первом столбце
+        emails = get_emails_from_csv(file=csv_file)
+        for email in emails:
             # Создание или получение объекта Email
             email_obj, created = Email.objects.get_or_create(email=email)
 
