@@ -106,7 +106,7 @@ def join_hackathon(
     hackathon = get_object_or_404(
         Hackathon, id=hackathon_id, status=Hackathon.Status.STARTED
     )
-    role.users.add(user)
+    role.users.add(user, through_defaults={"hackathon": hackathon})
     hackathon.participants.add(user)
     return 200, hackathon
 
