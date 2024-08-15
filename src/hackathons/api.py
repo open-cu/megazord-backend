@@ -26,7 +26,7 @@ from .schemas import (
     HackathonSchema,
     StatusOK,
 )
-from .services import get_emails_from_csv
+from .services import get_emails_from_csv, make_csv
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,11 @@ def create_hackathon(
         return 403, {
             "detail": "You are not organizator and you can't create hackathons"
         }
+
+    # Проверка на наличие запятых в названии хакатона
+    if "," in body.name:
+        return 400, {"detail": "Hackathon name cannot contain commas."}
+
     hackathon = Hackathon(
         creator=user,
         name=body.name,
@@ -361,7 +366,6 @@ def upload_emails_to_hackathon(
     return 200, {"details": "Emails successfully uploaded"}
 
 
-
 @hackathon_router.get(
     path="/{hackathon_id}/export",
     response={200: Any, 404: Error, 403: Error},
@@ -374,51 +378,14 @@ def export_participants_hackathon(request: APIRequest, hackathon_id: int):
     if hackathon.creator != user and user not in hackathon.participants.all():
         return 403, {"details": "You do not have permission to access this hackathon"}
 
-    # Создание объекта для записи CSV
-    csv_output = StringIO()
-    csv_writer = csv.writer(csv_output)
-
-    # Запись заголовков CSV-файла
-    csv_writer.writerow(["Team", "Full Name", "GitHub", "Role"])
-
-    # Получение списка команд и их участников
-    teams = Team.objects.filter(hackathon=hackathon).prefetch_related("team_members")
-
-    for team in teams:
-        for participant in team.team_members.all():
-            csv_writer.writerow(
-                [
-                    team.name,
-                    participant.username,  # Полное имя участника
-                    participant.github_username
-                    if hasattr(participant, "github_username")
-                    else "N/A",  # GitHub пользователя
-                    participant.role if hasattr(participant, "role") else "N/A",  # Роль
-                ]
-            )
-
-    # Добавление участников без команды
-    participants_without_team = hackathon.participants.exclude(
-        id__in=teams.values_list("team_members__id", flat=True)
-    )
-    for participant in participants_without_team:
-        csv_writer.writerow(
-            [
-                "No Team",
-                participant.username,  # Полное имя участника
-                participant.github_username
-                if hasattr(participant, "github_username")
-                else "N/A",  # GitHub пользователя
-                participant.role if hasattr(participant, "role") else "N/A",  # Роль
-            ]
-        )
-
+    csv_output = make_csv(hackathon)
     # Создание HTTP-ответа с заголовками для загрузки файла
-    response = HttpResponse(csv_output.getvalue(), content_type="text/csv")
+    response = HttpResponse(csv_output, content_type="text/csv")
     response["Content-Disposition"] = (
         f'attachment; filename="hackathon_{hackathon_id}_participants.csv"'
     )
     return response
+
 
 @hackathon_router.post(
     path="/{hackathon_id}/start",
@@ -483,4 +450,3 @@ def end_hackathon(request: APIRequest, hackathon_id: int):
     hackathon.save()
 
     return 200, StatusOK()
-

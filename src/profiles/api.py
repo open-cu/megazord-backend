@@ -17,7 +17,13 @@ def get_my_profile(request: APIRequest) -> Account:
 
 
 @router.patch(
-    path="/profile", response={201: ProfileSchema, 401: ErrorSchema, 409: ErrorSchema}
+    path="/profile",
+    response={
+        200: ProfileSchema,
+        201: ProfileSchema,
+        401: ErrorSchema,
+        409: ErrorSchema,
+    },
 )
 def profile_patch(request: APIRequest, edit_schema: ProfileEditSchema) -> Account:
     me = request.user
