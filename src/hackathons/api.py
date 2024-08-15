@@ -419,7 +419,7 @@ def export_participants_hackathon(request: APIRequest, hackathon_id: int):
         f'attachment; filename="hackathon_{hackathon_id}_participants.csv"'
     )
     return response
-=======
+
 @hackathon_router.post(
     path="/{hackathon_id}/start",
     response={200: StatusOK, ERROR_CODES: ErrorSchema},
