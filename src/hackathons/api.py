@@ -7,6 +7,7 @@ from typing import Any
 
 import jwt
 from django.core.mail import send_mail
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from ninja import File, Router, UploadedFile
 
@@ -155,14 +156,15 @@ def add_user_to_hackathon(
     # Проверка, является ли email адресом создателя хакатона
     if hackathon.creator.email == email_schema.email:
         return 400, {"details": "user is creator of the hackathon"}
+    try:
+        # Поиск или создание записи email
+        email_obj, created = Email.objects.get_or_create(email=email_schema.email)
 
-    # Поиск или создание записи email
-    email_obj, created = Email.objects.get_or_create(email=email_schema.email)
-
-    # Добавление email в хакатон
-    hackathon.emails.add(email_obj)
-    hackathon.save()
-
+        # Добавление email в хакатон
+        hackathon.emails.add(email_obj)
+        hackathon.save()
+    except Exception as e:
+        return 500, {"details": f"Failed to find user: {str(e)}"}
     # Создание JWT токена для приглашения
     encoded_jwt = jwt.encode(
         {
@@ -412,19 +414,20 @@ def upload_emails_to_hackathon(
 
     # Проверка, является ли пользователь создателем хакатона
     if hackathon.creator != user:
-        return 403, {"details": "You are not the creator or cannot edit this hackathon"}
+        return 403, {
+            "details": "You are not the creator and cannot edit this hackathon"
+        }
 
     try:
         # Чтение и парсинг CSV файла
-        file_data = csv_file.read().decode(
-            "utf-8-sig"
-        )  # Используем 'utf-8-sig' для удаления BOM
+        file_data = csv_file.read().decode("utf-8")
         csv_reader = csv.reader(StringIO(file_data))
 
         for row in csv_reader:
             email = row[
                 0
             ].strip()  # Предполагается, что email находится в первом столбце
+
             # Создание или получение объекта Email
             email_obj, created = Email.objects.get_or_create(email=email)
 
@@ -438,3 +441,62 @@ def upload_emails_to_hackathon(
         return 400, {"details": "Failed to process CSV file"}
 
     return 200, {"details": "Emails successfully uploaded"}
+
+
+@hackathon_router.get(
+    path="/{hackathon_id}/export",
+    response={200: Any, 404: Error, 403: Error},
+)
+def export_participants_hackathon(request: APIRequest, hackathon_id: int):
+    user = request.user
+    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+
+    # Проверка, является ли пользователь создателем хакатона или его участником
+    if hackathon.creator != user and user not in hackathon.participants.all():
+        return 403, {"details": "You do not have permission to access this hackathon"}
+
+    # Создание объекта для записи CSV
+    csv_output = StringIO()
+    csv_writer = csv.writer(csv_output)
+
+    # Запись заголовков CSV-файла
+    csv_writer.writerow(["Team", "Full Name", "GitHub", "Role"])
+
+    # Получение списка команд и их участников
+    teams = Team.objects.filter(hackathon=hackathon).prefetch_related("team_members")
+
+    for team in teams:
+        for participant in team.team_members.all():
+            csv_writer.writerow(
+                [
+                    team.name,
+                    participant.username,  # Полное имя участника
+                    participant.github_username
+                    if hasattr(participant, "github_username")
+                    else "N/A",  # GitHub пользователя
+                    participant.role if hasattr(participant, "role") else "N/A",  # Роль
+                ]
+            )
+
+    # Добавление участников без команды
+    participants_without_team = hackathon.participants.exclude(
+        id__in=teams.values_list("team_members__id", flat=True)
+    )
+    for participant in participants_without_team:
+        csv_writer.writerow(
+            [
+                "No Team",
+                participant.username,  # Полное имя участника
+                participant.github_username
+                if hasattr(participant, "github_username")
+                else "N/A",  # GitHub пользователя
+                participant.role if hasattr(participant, "role") else "N/A",  # Роль
+            ]
+        )
+
+    # Создание HTTP-ответа с заголовками для загрузки файла
+    response = HttpResponse(csv_output.getvalue(), content_type="text/csv")
+    response["Content-Disposition"] = (
+        f'attachment; filename="hackathon_{hackathon_id}_participants.csv"'
+    )
+    return response
