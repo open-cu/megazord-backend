@@ -10,6 +10,7 @@
 
 ### Bug Fixes
 
+- Set user role (#46) - ([733c694](https://github.com/open-cu/megazord-backend/commit/733c694dddff4196fe706bfa7086a5de0d357900))
 - Many things - ([f697c23](https://github.com/open-cu/megazord-backend/commit/f697c23358cf4a8ca9e0ed8e666c4a1a7ed08d5c))
 - Ci tests (#32) - ([a861cd8](https://github.com/open-cu/megazord-backend/commit/a861cd88b226e11922f37aed924e4e4ff69cf5ac))
 - Security vulnerabilities (#29) - ([389721b](https://github.com/open-cu/megazord-backend/commit/389721b3f1ab753f16526a0c84fa5a0074356fd0))
