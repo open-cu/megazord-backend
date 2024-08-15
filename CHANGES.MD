@@ -1,5 +1,5 @@
 # Changelog
-## Unreleased - 14.08.2024
+## Unreleased - 15.08.2024
 
 ### Features
 
@@ -25,6 +25,7 @@
 
 ### Add
 
+- Export csv (#40) - ([fa8a7ab](https://github.com/open-cu/megazord-backend/commit/fa8a7aba0a59a5ca613545af25e64227275ee349))
 - Upload csv - ([9166750](https://github.com/open-cu/megazord-backend/commit/9166750a498b74270adc60e208828ea18b4cb7de))
 - Analytics for admins - ([f26ae4b](https://github.com/open-cu/megazord-backend/commit/f26ae4b8215e120692e7ea8c81e0dd486f236b02))
 - Psycopg2 - ([3f71fb4](https://github.com/open-cu/megazord-backend/commit/3f71fb4babc1630d3dfdbf7f3b3847f809f2ca50))
