@@ -4,16 +4,16 @@ from datetime import datetime
 from typing import Annotated, Any
 
 import jwt
-from django.core.mail import send_mail
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from mail_templated import send_mail
 from ninja import File, Query, Router, UploadedFile
 
 from accounts.models import Account, Email
 from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema
-from megazord.settings import EMAIL_HOST_USER, SECRET_KEY
+from megazord.settings import SECRET_KEY
 from teams.models import Team, Token
 from teams.schemas import TeamById
 
@@ -32,10 +32,6 @@ logger = logging.getLogger(__name__)
 
 hackathon_router = Router()
 my_hackathon_router = Router()
-
-INVITE_SUBJECT_TEMPLATE = "Приглашение в хакатон {hackathon_name}"
-INVITE_BODY_TEMPLATE = """Вас пригласили на хакатон {hackathon_name} с помощью сервиса для упрощённого набора команд XaXack.
- Для принятия приглашения перейдите по ссылке: http://localhost:3000/join-hackaton?hackathon_id={invite_code}"""
 
 
 @hackathon_router.post(
@@ -166,13 +162,10 @@ def add_user_to_hackathon(
     try:
         Token.objects.create(token=encoded_jwt, is_active=True)
         send_mail(
-            subject=INVITE_SUBJECT_TEMPLATE.format(hackathon_name=hackathon.name),
-            message=INVITE_BODY_TEMPLATE.format(
-                hackathon_name=hackathon.name, invite_code=encoded_jwt
-            ),
-            from_email=EMAIL_HOST_USER,
+            template_name="hackathons/invitation_to_hackathon.html",
+            context={"hackathon": hackathon, "invite_code": encoded_jwt},
+            from_email="",
             recipient_list=[email_schema.email],
-            fail_silently=False,
         )
     except Exception as e:
         return 500, {"details": f"Failed to send email: {str(e)}"}
@@ -328,11 +321,10 @@ def send_code_to_email(request, hackathon_id: int, email_schema: AddUserToHack):
     # Отправка email с кодом подтверждения
     try:
         send_mail(
-            "Ваш код подтверждения",
-            f"Ваш код подтверждения: {confirmation_code}",
-            "noreply@zotov.dev",
-            [email_schema.email],
-            fail_silently=False,
+            template_name="hackathons/confirmation_code.html",
+            context={"confirmation_code": encoded_jwt},
+            from_email="",
+            recipient_list=[email_schema.email],
         )
     except Exception as e:
         logger.critical(e)
@@ -424,19 +416,12 @@ def start_hackathon(request: APIRequest, hackathon_id: int):
 
         try:
             Token.objects.create(token=encoded_jwt, is_active=True)
-            logger.info(
-                INVITE_BODY_TEMPLATE.format(
-                    hackathon_name=hackathon.name, invite_code=encoded_jwt
-                )
-            )
+            logger.info(encoded_jwt)
             send_mail(
-                subject=INVITE_SUBJECT_TEMPLATE.format(hackathon_name=hackathon.name),
-                message=INVITE_BODY_TEMPLATE.format(
-                    hackathon_name=hackathon.name, invite_code=encoded_jwt
-                ),
-                from_email=None,
+                template_name="hackathons/invitation_to_hackathon.html",
+                context={"hackathon": hackathon, "invite_code": encoded_jwt},
+                from_email="",
                 recipient_list=[participant_email],
-                fail_silently=False,
             )
         except Exception as e:
             logger.critical(e)
