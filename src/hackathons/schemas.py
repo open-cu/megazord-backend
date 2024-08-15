@@ -1,7 +1,11 @@
 from enum import StrEnum
+from typing import Any
 
+from django.core.exceptions import ObjectDoesNotExist
 from ninja import Schema
 
+from hackathons.models import Hackathon
+from megazord.api.requests import APIRequest
 from profiles.schemas import ProfileSchema
 
 
@@ -21,6 +25,23 @@ class HackathonSchema(Schema):
     min_participants: int | None
     max_participants: int | None
     participants: list[ProfileSchema]
+    roles: list[str]
+    role: str | None
+
+    @staticmethod
+    def resolve_roles(obj: Hackathon) -> list[str]:
+        return [role.name for role in obj.roles.all()]
+
+    @staticmethod
+    def resolve_role(obj: Hackathon, context: dict[str, Any]) -> str | None:
+        request: APIRequest = context["request"]
+
+        try:
+            role = obj.roles.get(users=request.user).name
+        except ObjectDoesNotExist:
+            role = None
+
+        return role
 
 
 class HackathonIn(Schema):
@@ -29,16 +50,7 @@ class HackathonIn(Schema):
     min_participants: int
     max_participants: int
     participants: list[str]
-
-
-class HackathonOut(Schema):
-    creator: int
-    name: str
-    description: str
-    participants: list[str]
-    imave_cover: str
-    min_participants: int
-    max_participants: int
+    roles: list[str]
 
 
 class EditHackathon(Schema):

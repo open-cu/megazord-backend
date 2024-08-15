@@ -1,12 +1,12 @@
 import logging
 import random
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
 import jwt
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
-from ninja import File, Router, UploadedFile
+from ninja import File, Query, Router, UploadedFile
 
 from accounts.models import Account, Email
 from megazord.api.codes import ERROR_CODES
@@ -16,7 +16,7 @@ from megazord.settings import EMAIL_HOST_USER, SECRET_KEY
 from teams.models import Team, Token
 from teams.schemas import TeamById
 
-from .models import Hackathon
+from .models import Hackathon, Role
 from .schemas import (
     AddUserToHack,
     EditHackathon,
@@ -62,6 +62,9 @@ def create_hackathon(
     hackathon.save()
     hackathon.image_cover.save(image_cover.name, image_cover)
 
+    for role in body.roles:
+        hackathon.roles.create(name=role)
+
     participants = set(body.participants)
     if csv_emails is not None:
         csv_participants = get_emails_from_csv(file=csv_emails)
@@ -80,8 +83,14 @@ def create_hackathon(
 @hackathon_router.post(
     path="/join", response={403: Error, 200: HackathonSchema, 401: Error}
 )
-def join_hackathon(request: APIRequest, hackathon_id: int, token: str):
+def join_hackathon(
+    request: APIRequest,
+    hackathon_id: int,
+    token: str,
+    role_name: Annotated[str, Query(alias="role")],
+):
     user = request.user
+    role = get_object_or_404(Role, hackathon_id=hackathon_id, name=role_name)
     tkn = get_object_or_404(Token, token=token)
     if not tkn.is_active:
         return 403, {"details": "token in not active"}
@@ -91,8 +100,8 @@ def join_hackathon(request: APIRequest, hackathon_id: int, token: str):
     hackathon = get_object_or_404(
         Hackathon, id=hackathon_id, status=Hackathon.Status.STARTED
     )
+    role.users.add(user)
     hackathon.participants.add(user)
-    hackathon.save()
     return 200, hackathon
 
 

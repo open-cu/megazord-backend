@@ -24,3 +24,23 @@ class Hackathon(models.Model):
     @property
     def accepted_invite(self):
         return self.participants.count()
+
+
+class Role(models.Model):
+    hackathon = models.ForeignKey(
+        Hackathon, on_delete=models.CASCADE, related_name="roles"
+    )
+    users = models.ManyToManyField(Account, through="UserRole")
+    name = models.CharField(max_length=200)
+
+    class Meta:
+        unique_together = (("hackathon", "name"),)
+
+
+class UserRole(models.Model):
+    role = models.ForeignKey(Role, on_delete=models.CASCADE)
+    user = models.ForeignKey(Account, on_delete=models.CASCADE)
+    hackathon = models.ForeignKey(Hackathon, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = (("hackathon", "user"),)
