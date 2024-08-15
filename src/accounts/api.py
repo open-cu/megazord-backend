@@ -1,5 +1,6 @@
 from django.contrib import auth
 from ninja import Router
+from ninja.errors import HttpError
 
 from megazord.api.auth import BadCredentials, create_jwt
 from megazord.api.requests import APIRequest
@@ -19,6 +20,10 @@ router = Router()
 def signup(
     request: APIRequest, schema: RegisterSchema
 ) -> tuple[int, RegisterResponseSchema]:
+    # Проверка на наличие запятых в имени пользователя
+    if "," in schema.username:
+        raise HttpError(422, "Username cannot contain commas.")
+
     account = Account.objects.create_user(
         email=schema.email,
         username=schema.username,
@@ -48,5 +53,3 @@ def signin(request: APIRequest, schema: LoginSchema) -> tuple[int, TokenSchema]:
 
     token = create_jwt(user_id=account.id)
     return 200, TokenSchema(token=token)
-
-
