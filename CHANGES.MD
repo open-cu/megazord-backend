@@ -3,6 +3,7 @@
 
 ### Features
 
+- Move mail texts to html templates (#47) - ([2b4a446](https://github.com/open-cu/megazord-backend/commit/2b4a4469e304539f82a81b7dd814df14cc2ad4f6))
 - Add hackathon roles (#43) - ([8346f9f](https://github.com/open-cu/megazord-backend/commit/8346f9f9b2459be0699ea926b4475bd54a84a676))
 - Hackathon statuses (#38) - ([525d7bd](https://github.com/open-cu/megazord-backend/commit/525d7bd692884bf2188241905114e6b63e0f281d))
 - Upload csv emails on hackathon creation (#37) - ([7ce890d](https://github.com/open-cu/megazord-backend/commit/7ce890d02cfa3b1fc97f372c3d22b79e5e5d51ea))
