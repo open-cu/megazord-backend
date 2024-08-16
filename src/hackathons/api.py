@@ -83,25 +83,23 @@ def create_hackathon(
 
 
 @hackathon_router.post(
-    path="/join", response={403: Error, 200: HackathonSchema, 401: Error}
+    path="/join", response={200: HackathonSchema, 401: ErrorSchema, 403: ErrorSchema}
 )
 def join_hackathon(
     request: APIRequest,
     hackathon_id: int,
-    token: str,
     role_name: Annotated[str, Query(alias="role")],
 ):
     user = request.user
-    role = get_object_or_404(Role, hackathon_id=hackathon_id, name=role_name)
-    tkn = get_object_or_404(Token, token=token)
-    if not tkn.is_active:
-        return 403, {"details": "token in not active"}
-    else:
-        tkn.is_active = False
-        tkn.save()
     hackathon = get_object_or_404(
         Hackathon, id=hackathon_id, status=Hackathon.Status.STARTED
     )
+    if not hackathon.emails.filter(email=user.email).exists():
+        return 403, ErrorSchema(
+            detail="You have not been added to the hackathon participants"
+        )
+
+    role = get_object_or_404(Role, hackathon=hackathon, name=role_name)
     role.users.add(user, through_defaults={"hackathon": hackathon})
     hackathon.participants.add(user)
     return 200, hackathon
@@ -145,25 +143,14 @@ def add_user_to_hackathon(
         hackathon.save()
     except Exception as e:
         return 500, {"details": f"Failed to find user: {str(e)}"}
-    # Создание JWT токена для приглашения
-    encoded_jwt = jwt.encode(
-        {
-            "createdAt": datetime.utcnow().timestamp(),
-            "hackathon_id": hackathon.id,
-            "email": email_schema.email,
-        },
-        SECRET_KEY,
-        algorithm="HS256",
-    )
 
     if email_schema.email == hackathon.creator.email:
         return 400, {"details": "user is creator of the hackathon"}
 
     try:
-        Token.objects.create(token=encoded_jwt, is_active=True)
         send_mail(
             template_name="hackathons/invitation_to_hackathon.html",
-            context={"hackathon": hackathon, "invite_code": encoded_jwt},
+            context={"hackathon": hackathon},
             from_email="",
             recipient_list=[email_schema.email],
         )
@@ -404,22 +391,10 @@ def start_hackathon(request: APIRequest, hackathon_id: int):
 
     for participant in hackathon.emails.all():
         participant_email = participant.email
-        encoded_jwt = jwt.encode(
-            {
-                "createdAt": datetime.now().timestamp(),
-                "id": hackathon.id,
-                "email": participant_email,
-            },
-            SECRET_KEY,
-            algorithm="HS256",
-        )
-
         try:
-            Token.objects.create(token=encoded_jwt, is_active=True)
-            logger.info(encoded_jwt)
             send_mail(
                 template_name="hackathons/invitation_to_hackathon.html",
-                context={"hackathon": hackathon, "invite_code": encoded_jwt},
+                context={"hackathon": hackathon},
                 from_email="",
                 recipient_list=[participant_email],
             )
