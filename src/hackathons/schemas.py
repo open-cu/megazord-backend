@@ -47,10 +47,10 @@ class HackathonSchema(Schema):
 class HackathonIn(Schema):
     name: str
     description: str
-    min_participants: int
-    max_participants: int
-    participants: list[str]
-    roles: list[str]
+    min_participants: int = 1
+    max_participants: int = 5
+    participants: list[str] = []
+    roles: list[str] = []
 
 
 class EditHackathon(Schema):
