@@ -88,7 +88,7 @@ def create_hackathon(
 def join_hackathon(
     request: APIRequest,
     hackathon_id: int,
-    role_name: Annotated[str, Query(alias="role")],
+    role_name: Annotated[str | None, Query(alias="role")] = None,
 ):
     user = request.user
     hackathon = get_object_or_404(
@@ -99,8 +99,13 @@ def join_hackathon(
             detail="You have not been added to the hackathon participants"
         )
 
-    role = get_object_or_404(Role, hackathon=hackathon, name=role_name)
-    role.users.add(user, through_defaults={"hackathon": hackathon})
+    if role_name is None:
+        if hackathon.roles.count() != 0:
+            return 400, ErrorSchema(detail="Please, choice role")
+    else:
+        role = get_object_or_404(Role, hackathon=hackathon, name=role_name)
+        role.users.add(user, through_defaults={"hackathon": hackathon})
+
     hackathon.participants.add(user)
     return 200, hackathon
 
