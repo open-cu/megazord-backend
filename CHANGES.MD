@@ -1,8 +1,9 @@
 # Changelog
-## Unreleased - 15.08.2024
+## Unreleased - 16.08.2024
 
 ### Features
 
+- Add general link to join the hackathon (#49) - ([3bdae03](https://github.com/open-cu/megazord-backend/commit/3bdae030ed007ca4543a232e46abacf6c0ba0ff9))
 - Move mail texts to html templates (#47) - ([2b4a446](https://github.com/open-cu/megazord-backend/commit/2b4a4469e304539f82a81b7dd814df14cc2ad4f6))
 - Add hackathon roles (#43) - ([8346f9f](https://github.com/open-cu/megazord-backend/commit/8346f9f9b2459be0699ea926b4475bd54a84a676))
 - Hackathon statuses (#38) - ([525d7bd](https://github.com/open-cu/megazord-backend/commit/525d7bd692884bf2188241905114e6b63e0f281d))
