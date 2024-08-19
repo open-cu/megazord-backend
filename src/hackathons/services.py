@@ -3,6 +3,7 @@ from io import StringIO
 
 from ninja import UploadedFile
 
+from hackathons.models import UserRole
 from resumes.models import Resume
 from teams.models import Team
 
@@ -39,13 +40,20 @@ def make_csv(hackathon) -> str:
             except Resume.DoesNotExist:
                 github = "N/A"  # Если резюме нет, то заполняем поле "N/A"
 
+            # Получаем роль участника в хакатоне через таблицу UserRole
+            try:
+                user_role = UserRole.objects.get(user=participant, hackathon=hackathon)
+                role = user_role.role.name
+            except UserRole.DoesNotExist:
+                role = "N/A"
+
             csv_writer.writerow(
                 [
                     team.name,
                     participant.email,  # Почта участника
                     participant.username,  # Полное имя участника
                     github,  # GitHub пользователя из резюме
-                    participant.role if hasattr(participant, "role") else "N/A",  # Роль
+                    role,  # Роль участника в хакатоне
                 ]
             )
 
@@ -61,13 +69,20 @@ def make_csv(hackathon) -> str:
         except Resume.DoesNotExist:
             github = "N/A"
 
+        # Получаем роль участника в хакатоне через таблицу UserRole
+        try:
+            user_role = UserRole.objects.get(user=participant, hackathon=hackathon)
+            role = user_role.role.name
+        except UserRole.DoesNotExist:
+            role = "N/A"
+
         csv_writer.writerow(
             [
                 "No Team",
                 participant.email,  # Почта участника
                 participant.username,  # Полное имя участника
                 github,  # GitHub пользователя из резюме
-                participant.role if hasattr(participant, "role") else "N/A",  # Роль
+                role,  # Роль участника в хакатоне
             ]
         )
 
