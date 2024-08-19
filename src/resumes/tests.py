@@ -33,6 +33,7 @@ class TestResumesAPI(TestCase):
             "hh": "test_hhru",
             "telegram": "tg",
             "personal_website": "test_website",
+            "role": None,
         }
 
     def test_resume_create(self) -> None:
