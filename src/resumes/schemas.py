@@ -1,4 +1,5 @@
-from ninja import ModelSchema, Field, Schema
+from django.core.exceptions import ObjectDoesNotExist
+from ninja import Field, ModelSchema, Schema
 
 from resumes.models import Resume
 
@@ -20,6 +21,7 @@ class ResumeUpdateSchema(ResumeCreateSchema):
 
 class ResumeSchema(ModelSchema):
     hackathon_id: int = Field(alias="hackathon.id")
+    role: str | None
     tech: list[str] = []
     soft: list[str] = []
 
@@ -30,6 +32,14 @@ class ResumeSchema(ModelSchema):
     @staticmethod
     def resolve_soft(obj: Resume) -> list[str]:
         return [skill.tag_text for skill in obj.soft_skills.all()]
+
+    @staticmethod
+    def resolve_role(obj: Resume) -> str | None:
+        try:
+            role = obj.hackathon.roles.get(users=obj.user).name
+        except ObjectDoesNotExist:
+            role = None
+        return role
 
     class Meta:
         model = Resume
