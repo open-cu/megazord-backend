@@ -69,5 +69,9 @@ class AddUserToHack(Schema):
     email: EmailStr
 
 
+class EmailsSchema(Schema):
+    emails: list[EmailStr]
+
+
 class StatusOK(Schema):
     status: str = "ok"
