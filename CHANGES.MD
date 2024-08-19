@@ -3,6 +3,7 @@
 
 ### Features
 
+- Add endpoint for send invites to hackathon (#61) - ([af858f6](https://github.com/open-cu/megazord-backend/commit/af858f6de08e08c335352c3fd9c61dc9deb70681))
 - Get user role in resume (#56) - ([b7ff6d5](https://github.com/open-cu/megazord-backend/commit/b7ff6d59abf00974079494c9905b682c72bba1c7))
 - Add default hackathon values (#51) - ([a690dd6](https://github.com/open-cu/megazord-backend/commit/a690dd6d35440db99ffb33b544c57ed77d339052))
 - Add general link to join the hackathon (#49) - ([3bdae03](https://github.com/open-cu/megazord-backend/commit/3bdae030ed007ca4543a232e46abacf6c0ba0ff9))
