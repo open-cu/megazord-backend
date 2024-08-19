@@ -3,6 +3,7 @@ from typing import Any
 
 from django.core.exceptions import ObjectDoesNotExist
 from ninja import Schema
+from pydantic import EmailStr
 
 from hackathons.models import Hackathon
 from megazord.api.requests import APIRequest
@@ -49,7 +50,7 @@ class HackathonIn(Schema):
     description: str
     min_participants: int = 1
     max_participants: int = 5
-    participants: list[str] = []
+    participants: list[EmailStr] = []
     roles: list[str] = []
 
 
@@ -65,7 +66,7 @@ class Error(Schema):
 
 
 class AddUserToHack(Schema):
-    email: str
+    email: EmailStr
 
 
 class StatusOK(Schema):
