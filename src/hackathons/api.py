@@ -1,6 +1,7 @@
 import logging
 import random
 from datetime import datetime
+from smtplib import SMTPException
 from typing import Annotated, Any
 
 import jwt
@@ -21,6 +22,7 @@ from .models import Hackathon, Role
 from .schemas import (
     AddUserToHack,
     EditHackathon,
+    EmailsSchema,
     Error,
     HackathonIn,
     HackathonSchema,
@@ -83,7 +85,7 @@ def create_hackathon(
 
 
 @hackathon_router.post(
-    path="/join", response={200: HackathonSchema, 401: ErrorSchema, 403: ErrorSchema}
+    path="/join", response={200: HackathonSchema, ERROR_CODES: ErrorSchema}
 )
 def join_hackathon(
     request: APIRequest,
@@ -117,15 +119,32 @@ def list_hackathons(request):
 
 
 @hackathon_router.post(
+    path="/{hackathon_id}/send_invites",
+    response={200: StatusOK, ERROR_CODES: ErrorSchema},
+)
+def send_invites(request: APIRequest, hackathon_id: int, emails_schema: EmailsSchema):
+    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+
+    if request.user != hackathon.creator:
+        return 403, ErrorSchema(detail="You are not creator")
+
+    try:
+        send_mail(
+            template_name="hackathons/invitation_to_hackathon.html",
+            context={"hackathon": hackathon},
+            from_email="",
+            recipient_list=emails_schema.emails,
+        )
+    except SMTPException as exc:
+        logger.critical(exc)
+        return 500, ErrorSchema(detail="Failed to send invites")
+
+    return 200, StatusOK()
+
+
+@hackathon_router.post(
     path="/{hackathon_id}/add_user",
-    response={
-        201: HackathonSchema,
-        401: Error,
-        404: Error,
-        403: Error,
-        400: Error,
-        500: Error,
-    },
+    response={201: HackathonSchema, ERROR_CODES: Error},
 )
 def add_user_to_hackathon(
     request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
@@ -146,21 +165,8 @@ def add_user_to_hackathon(
         # Добавление email в хакатон
         hackathon.emails.add(email_obj)
         hackathon.save()
-    except Exception as e:
+    except SMTPException as e:
         return 500, {"details": f"Failed to find user: {str(e)}"}
-
-    if email_schema.email == hackathon.creator.email:
-        return 400, {"details": "user is creator of the hackathon"}
-
-    try:
-        send_mail(
-            template_name="hackathons/invitation_to_hackathon.html",
-            context={"hackathon": hackathon},
-            from_email="",
-            recipient_list=[email_schema.email],
-        )
-    except Exception as e:
-        return 500, {"details": f"Failed to send email: {str(e)}"}
 
     return 201, hackathon
 
@@ -394,17 +400,16 @@ def start_hackathon(request: APIRequest, hackathon_id: int):
     hackathon.status = Hackathon.Status.STARTED
     hackathon.save()
 
-    for participant in hackathon.emails.all():
-        participant_email = participant.email
-        try:
-            send_mail(
-                template_name="hackathons/invitation_to_hackathon.html",
-                context={"hackathon": hackathon},
-                from_email="",
-                recipient_list=[participant_email],
-            )
-        except Exception as e:
-            logger.critical(e)
+    try:
+        send_mail(
+            template_name="hackathons/invitation_to_hackathon.html",
+            context={"hackathon": hackathon},
+            from_email="",
+            recipient_list=[email.email for email in hackathon.emails.all()],
+        )
+    except SMTPException as exc:
+        logger.critical(exc)
+        return 500, ErrorSchema(detail="Failed to send email")
 
     return 200, StatusOK()
 
