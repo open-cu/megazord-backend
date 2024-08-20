@@ -332,7 +332,7 @@ def get_suggest_users_for_specific_vacansion(
     )
     result = {"users": []}
     for i in raiting:
-        user = get_object_or_404(Account, id=int(list(i)[0]))
+        user = get_object_or_404(Account, id=(list(i)[0]))
         bio = ""
         try:
             bio = get_object_or_404(
@@ -386,7 +386,7 @@ def get_suggest_vacansions_for_specific_user(
     )
     result = {"vacantions": []}
     for i in raiting:
-        vac = get_object_or_404(Vacancy, id=int(list(i)[0]))
+        vac = get_object_or_404(Vacancy, id=(list(i)[0]))
         kws = [j.text for j in Keyword.objects.filter(vacancy=vac).all()]
         result["vacantions"].append(
             {"id": vac.id, "name": vac.name, "keywords": kws, "team": vac.team}
