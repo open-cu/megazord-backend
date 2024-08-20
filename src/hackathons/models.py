@@ -14,7 +14,7 @@ class Hackathon(models.Model):
     )
     name = models.CharField(max_length=200, null=False)
     status = models.CharField(choices=Status, default=Status.NOT_STARTED)
-    image_cover = models.ImageField(upload_to="hackathon_images/", null=True)
+    image_cover = models.BinaryField(null=False)
     description = models.TextField(null=False, default="описание хакатона")
     min_participants = models.IntegerField(null=True, default=3)
     max_participants = models.IntegerField(null=True, default=5)

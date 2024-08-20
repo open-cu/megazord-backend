@@ -62,9 +62,9 @@ def create_hackathon(
         description=body.description,
         min_participants=body.min_participants,
         max_participants=body.max_participants,
+        image_cover=image_cover.read(),
     )
     hackathon.save()
-    hackathon.image_cover.save(image_cover.name, image_cover)
 
     for role in body.roles:
         hackathon.roles.create(name=role)
