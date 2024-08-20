@@ -38,6 +38,9 @@ def signup(
         username=schema.username,
         password=schema.password,
         is_organizator=schema.is_organizator,
+        age=schema.age,
+        city=schema.city,
+        work_experience=schema.work_experience,
     )
     confirmation_code = ConfirmationCode.generate(user=account)
 
