@@ -1,11 +1,26 @@
 import uuid
+from datetime import timedelta
+from random import randint
 
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.db import models
+from django.utils import timezone
+
+from megazord.settings import CONFIRMATION_CODE_TTL
 
 
 class MyAccountManager(BaseUserManager):
-    def create_user(self, email, username, is_organizator, password=None):
+    def create_user(
+        self,
+        email: str,
+        username: str,
+        is_organizator: bool,
+        password: str | None = None,
+        age: int | None = None,
+        city: str | None = None,
+        work_experience: int | None = None,
+        is_active: bool = False,
+    ):
         if not email:
             raise ValueError("Users must have an email address")
         if not username:
@@ -17,7 +32,15 @@ class MyAccountManager(BaseUserManager):
             email=self.normalize_email(email),
             username=username,
             is_organizator=is_organizator,
+            is_active=is_active,
         )
+
+        if age is not None:
+            user.age = age
+        if city is not None:
+            user.city = city
+        if work_experience is not None:
+            user.work_experience = work_experience
 
         user.set_password(password)
         user.save(using=self._db)
@@ -75,3 +98,28 @@ class Email(models.Model):
 
     def __str__(self):
         return self.email
+
+
+class ConfirmationCode(models.Model):
+    user = models.OneToOneField(
+        Account, on_delete=models.CASCADE, unique=True, related_name="confirmation_code"
+    )
+    code = models.IntegerField()
+    expire_at = models.DateTimeField()
+
+    def save(self, *args, **kwargs):
+        self.expire_at = timezone.now() + timedelta(minutes=CONFIRMATION_CODE_TTL)
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def generate(cls, user: Account):
+        code, _ = ConfirmationCode.objects.update_or_create(
+            user=user,
+            defaults={"code": randint(100_000, 999_999)},
+        )
+
+        return code
+
+    @property
+    def is_expired(self) -> bool:
+        return self.expire_at < timezone.now()

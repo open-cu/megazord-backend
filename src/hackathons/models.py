@@ -11,17 +11,14 @@ class Hackathon(models.Model):
         STARTED = "STARTED"
         ENDED = "ENDED"
 
-    # Используем UUID в качестве primary key
     id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
 
     creator = models.ForeignKey(
         Account, on_delete=models.CASCADE, related_name="creator"
     )
     name = models.CharField(max_length=200, null=False)
-    status = models.CharField(
-        max_length=20, choices=Status.choices, default=Status.NOT_STARTED
-    )
-    image_cover = models.ImageField(upload_to="hackathon_images/", null=True)
+    status = models.CharField(choices=Status, default=Status.NOT_STARTED)
+    image_cover = models.BinaryField(null=False)
     description = models.TextField(null=False, default="описание хакатона")
     min_participants = models.IntegerField(null=True, default=3)
     max_participants = models.IntegerField(null=True, default=5)

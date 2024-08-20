@@ -5,6 +5,7 @@ from ninja.testing import TestClient
 from megazord.api.auth import BadCredentials
 
 from .api import router
+from .models import Account
 
 
 class TestAccountsAPI(TestCase):
@@ -36,6 +37,11 @@ class TestAccountsAPI(TestCase):
 
     def test_login_user(self) -> None:
         self.api_client.post("/signup", json=self.register_schema)
+
+        # force activate user
+        user = Account.objects.get(email=self.user_schema["email"])
+        user.is_active = True
+        user.save()
 
         login_data = {"email": "test_user@corp.ru", "password": "test_password"}
         response = self.api_client.post("/signin", json=login_data)

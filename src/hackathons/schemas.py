@@ -1,3 +1,4 @@
+import base64
 from enum import StrEnum
 from typing import Any
 
@@ -48,6 +49,10 @@ class HackathonSchema(ModelSchema):
             role = None
 
         return role
+
+    @staticmethod
+    def resolve_image_cover(obj: Hackathon) -> str:
+        return base64.b64encode(obj.image_cover).decode()
 
 
 class HackathonIn(Schema):

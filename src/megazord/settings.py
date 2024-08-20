@@ -11,7 +11,6 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 import logging
-import os
 from pathlib import Path
 
 import environ
@@ -37,6 +36,8 @@ DEBUG = env.bool("DJANGO_DEBUG", False)
 
 ALLOWED_HOSTS = ["*"]
 CORS_ALLOW_ALL_ORIGINS = True
+
+FRONTEND_URL = env.str("DOMAIN", default="http://localhost:3000")
 
 # Application definition
 
@@ -91,7 +92,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "megazord.wsgi.application"
 
-
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
@@ -135,14 +135,6 @@ USE_I18N = True
 
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.0/howto/static-files/
-
-STATIC_URL = "/static/"
-MEDIA_URL = "/media/"
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
-STATICFILES_DIRS = (os.path.join(BASE_DIR, "static"),)
-
 # AUTHENTICATION_BACKENDS = [
 #     'django.contrib.auth.backends.ModelBackend',
 # ]
@@ -167,3 +159,6 @@ EMAIL_ADMIN = EMAIL_HOST_USER
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Confirmation code TTL in minutes
+CONFIRMATION_CODE_TTL = env.int("CONFIRMATION_CODE_TTL", default=2)

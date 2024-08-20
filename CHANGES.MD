@@ -1,8 +1,10 @@
 # Changelog
-## Unreleased - 19.08.2024
+## Unreleased - 20.08.2024
 
 ### Features
 
+- Add account confirmation (#69) - ([5325693](https://github.com/open-cu/megazord-backend/commit/5325693a63876c66d59f0d30724bbe15252fefc6))
+- Add mail notification when user kicked from team (#67) - ([1df91cf](https://github.com/open-cu/megazord-backend/commit/1df91cf62f9c9157bf3aa184a2dae8b5ad054c92))
 - Add endpoint for send invites to hackathon (#61) - ([af858f6](https://github.com/open-cu/megazord-backend/commit/af858f6de08e08c335352c3fd9c61dc9deb70681))
 - Get user role in resume (#56) - ([b7ff6d5](https://github.com/open-cu/megazord-backend/commit/b7ff6d59abf00974079494c9905b682c72bba1c7))
 - Add default hackathon values (#51) - ([a690dd6](https://github.com/open-cu/megazord-backend/commit/a690dd6d35440db99ffb33b544c57ed77d339052))
@@ -15,6 +17,8 @@
 
 ### Bug Fixes
 
+- Add frontend url to settings (#73) - ([2a73566](https://github.com/open-cu/megazord-backend/commit/2a7356639e3dfeb2193d54056fced191c1664041))
+- Store images as binary (#65) - ([0871dd0](https://github.com/open-cu/megazord-backend/commit/0871dd004b37836a404bb3504deab65504a6132b))
 - Email validation & url in mail template (#58) - ([ac62f45](https://github.com/open-cu/megazord-backend/commit/ac62f451d575432d40b68b5e4fcca26ecd00400c))
 - Optional role provide when joining the hackathon (#54) - ([25b3e14](https://github.com/open-cu/megazord-backend/commit/25b3e1441c7e0ae36f52e59555be6fa2f25d05a5))
 - Set user role (#46) - ([733c694](https://github.com/open-cu/megazord-backend/commit/733c694dddff4196fe706bfa7086a5de0d357900))
@@ -25,6 +29,7 @@
 
 ### Miscellaneous Tasks
 
+- Ttl confirmation code moved to settings (#71) - ([e0b8bd7](https://github.com/open-cu/megazord-backend/commit/e0b8bd77729f40a55dc53f8a91098b0eef08bd70))
 - Log hackathon invite link - ([985493b](https://github.com/open-cu/megazord-backend/commit/985493bb7d9b40bd7eb569ecceba342640348072))
 - Use `request.user` for access to current user & add tests for `accounts api` (#14) - ([5959061](https://github.com/open-cu/megazord-backend/commit/59590619e0066d2c085d8d9fe81e5c1298867052))
 - Only changed files checking by linters  (#13) - ([052b880](https://github.com/open-cu/megazord-backend/commit/052b88054e66f6794d111743b27cdfc1c528d13f))
