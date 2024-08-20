@@ -1,4 +1,5 @@
 from ninja import Field, Schema
+from pydantic import EmailStr
 
 
 class RegisterResponseSchema(Schema):
@@ -27,3 +28,12 @@ class LoginSchema(Schema):
 
 class TokenSchema(Schema):
     token: str
+
+
+class EmailSchema(Schema):
+    email: EmailStr
+
+
+class ActivationSchema(Schema):
+    email: EmailStr
+    code: int

@@ -1,10 +1,7 @@
 import logging
-import random
-from datetime import datetime
 from smtplib import SMTPException
 from typing import Annotated, Any
 
-import jwt
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from mail_templated import send_mail
@@ -14,8 +11,7 @@ from accounts.models import Account, Email
 from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema
-from megazord.settings import SECRET_KEY
-from teams.models import Team, Token
+from teams.models import Team
 from teams.schemas import TeamById
 
 from .models import Hackathon, Role
@@ -286,56 +282,6 @@ def get_user_team_in_hackathon(request: APIRequest, id: str):
                     }
     else:
         return 404, {"details": "Not found"}
-
-
-@hackathon_router.post(
-    path="/{hackathon_id}/send_code",
-    response={200: Any, 400: Error, 404: Error, 403: Error},
-)
-def send_code_to_email(request, hackathon_id: int, email_schema: AddUserToHack):
-    # Получение хакатона по id
-    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
-
-    # Проверка, существует ли email в списке emails хакатона
-    email_obj = get_object_or_404(Email, email=email_schema.email)
-
-    if email_obj not in hackathon.emails.all():
-        return {"details": "Email not found in hackathon"}, 404
-
-    # Генерация 6-значного кода
-    confirmation_code = str(random.randint(100000, 999999))
-
-    # Создание JWT для хранения кода подтверждения
-    encoded_jwt = jwt.encode(
-        {
-            "confirmation_code": confirmation_code,
-            "email": email_schema.email,
-            "createdAt": datetime.utcnow().timestamp(),
-        },
-        SECRET_KEY,
-        algorithm="HS256",
-    )
-
-    # Сохранение токена в базе данных
-    try:
-        Token.objects.create(token=encoded_jwt, is_active=True)
-    except Exception as e:
-        logger.critical(e)
-        return {"details": "Failed to create token"}, 500
-
-    # Отправка email с кодом подтверждения
-    try:
-        send_mail(
-            template_name="hackathons/confirmation_code.html",
-            context={"confirmation_code": encoded_jwt},
-            from_email="",
-            recipient_list=[email_schema.email],
-        )
-    except Exception as e:
-        logger.critical(e)
-        return {"details": "Failed to send email"}, 500
-
-    return {"details": "Confirmation code sent successfully"}, 200
 
 
 @hackathon_router.post(
