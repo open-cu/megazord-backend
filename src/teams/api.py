@@ -155,6 +155,13 @@ def remove_user_from_team(
             if user_to_remove in team.team_members.all():
                 team.team_members.remove(user_to_remove)
                 team.save()
+
+                send_mail(
+                    template_name="teams/user_kicked.html",
+                    context={"team": team},
+                    from_email="",
+                    recipient_list=[user_to_remove.email],
+                )
             return 201, team
         else:
             return 400, {"detail": "This user is creator of team"}

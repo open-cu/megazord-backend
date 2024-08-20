@@ -186,6 +186,13 @@ def remove_user_from_hackathon(
             if user_to_remove in hackathon.participants.all():
                 hackathon.participants.remove(user_to_remove)
                 hackathon.save()
+
+                send_mail(
+                    template_name="hackathons/user_kicked.html",
+                    context={"hackathon": hackathon},
+                    from_email="",
+                    recipient_list=[user_to_remove.email],
+                )
             return 201, hackathon
         else:
             return 400, {"detail": "This user is creator of hackathon"}
