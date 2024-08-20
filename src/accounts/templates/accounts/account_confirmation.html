@@ -1,0 +1,9 @@
+{% extends "mail_templated/base.tpl" %}
+
+{% block subject %}
+    Подтвердите свой аккаунт
+{% endblock %}
+
+{% block html %}
+    Ваш код подтверждения: <b>{{ code }}</b>
+{% endblock %}
