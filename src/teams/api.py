@@ -13,7 +13,7 @@ from hackathons.models import Hackathon
 from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema
-from megazord.settings import SECRET_KEY
+from megazord.settings import FRONTEND_URL, SECRET_KEY
 from resumes.models import HardSkillTag, Resume, SoftSkillTag
 from vacancies.models import Apply, Keyword, Vacancy
 
@@ -129,7 +129,11 @@ def add_user_to_team(request: APIRequest, team_id: int, email_schema: AddUserToT
             Token.objects.create(token=encoded_jwt, is_active=True)
             send_mail(
                 template_name="teams/invitation_to_team.html",
-                context={"team": team, "invite_code": encoded_jwt},
+                context={
+                    "team": team,
+                    "invite_code": encoded_jwt,
+                    "frontend_url": FRONTEND_URL,
+                },
                 from_email="",
                 recipient_list=[email_schema.email],
             )

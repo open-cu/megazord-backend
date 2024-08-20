@@ -11,6 +11,7 @@ from accounts.models import Account, Email
 from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema
+from megazord.settings import FRONTEND_URL
 from teams.models import Team
 from teams.schemas import TeamById
 
@@ -356,7 +357,7 @@ def start_hackathon(request: APIRequest, hackathon_id: int):
     try:
         send_mail(
             template_name="hackathons/invitation_to_hackathon.html",
-            context={"hackathon": hackathon},
+            context={"hackathon": hackathon, "frontend_url": FRONTEND_URL},
             from_email="",
             recipient_list=[email.email for email in hackathon.emails.all()],
         )
