@@ -37,6 +37,8 @@ DEBUG = env.bool("DJANGO_DEBUG", False)
 ALLOWED_HOSTS = ["*"]
 CORS_ALLOW_ALL_ORIGINS = True
 
+FRONTEND_URL = env.str("DOMAIN", default="http://localhost:3000")
+
 # Application definition
 
 INSTALLED_APPS = [
