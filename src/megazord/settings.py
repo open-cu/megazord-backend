@@ -90,7 +90,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "megazord.wsgi.application"
 
-
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
@@ -158,3 +157,6 @@ EMAIL_ADMIN = EMAIL_HOST_USER
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Confirmation code TTL in minutes
+CONFIRMATION_CODE_TTL = env.int("CONFIRMATION_CODE_TTL", default=2)
