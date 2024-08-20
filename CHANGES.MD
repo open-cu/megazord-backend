@@ -28,6 +28,7 @@
 
 ### Miscellaneous Tasks
 
+- Ttl confirmation code moved to settings (#71) - ([e0b8bd7](https://github.com/open-cu/megazord-backend/commit/e0b8bd77729f40a55dc53f8a91098b0eef08bd70))
 - Log hackathon invite link - ([985493b](https://github.com/open-cu/megazord-backend/commit/985493bb7d9b40bd7eb569ecceba342640348072))
 - Use `request.user` for access to current user & add tests for `accounts api` (#14) - ([5959061](https://github.com/open-cu/megazord-backend/commit/59590619e0066d2c085d8d9fe81e5c1298867052))
 - Only changed files checking by linters  (#13) - ([052b880](https://github.com/open-cu/megazord-backend/commit/052b88054e66f6794d111743b27cdfc1c528d13f))
