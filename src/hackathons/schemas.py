@@ -2,7 +2,7 @@ from enum import StrEnum
 from typing import Any
 
 from django.core.exceptions import ObjectDoesNotExist
-from ninja import Schema
+from ninja import ModelSchema, Schema
 from pydantic import EmailStr
 
 from hackathons.models import Hackathon
@@ -16,18 +16,23 @@ class HackathonStatus(StrEnum):
     ENDED = "ENDED"
 
 
-class HackathonSchema(Schema):
-    id: int
-    creator_id: int
-    name: str
-    status: HackathonStatus
-    image_cover: str
-    description: str
-    min_participants: int | None
-    max_participants: int | None
+class HackathonSchema(ModelSchema):
     participants: list[ProfileSchema]
     roles: list[str]
     role: str | None
+
+    class Meta:
+        model = Hackathon
+        fields = [
+            "id",
+            "creator",
+            "name",
+            "status",
+            "image_cover",
+            "description",
+            "min_participants",
+            "max_participants",
+        ]
 
     @staticmethod
     def resolve_roles(obj: Hackathon) -> list[str]:

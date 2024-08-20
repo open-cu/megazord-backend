@@ -1,3 +1,4 @@
+import uuid
 from collections import Counter
 from datetime import datetime
 from typing import Any, List
@@ -40,7 +41,7 @@ team_router = Router()
 
 
 @team_router.post(path="/create", response={201: TeamSchemaOut})
-def create_team(request: APIRequest, hackathon_id: int, body: TeamIn):
+def create_team(request: APIRequest, hackathon_id: uuid.UUID, body: TeamIn):
     user = request.user
     body_dict = body.dict()
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
@@ -66,7 +67,7 @@ def create_team(request: APIRequest, hackathon_id: int, body: TeamIn):
 
 
 @team_router.delete("/delete", response={201: Successful, 400: Error, 401: Error})
-def delete_team(request: APIRequest, id):
+def delete_team(request: APIRequest, id: uuid.UUID):
     user = request.user
     team = get_object_or_404(Team, id=id)
     if team.creator == user:
@@ -77,7 +78,7 @@ def delete_team(request: APIRequest, id):
 
 
 @team_router.post("/accept_application", response={200: Successful, 400: Error})
-def accept_application(request: APIRequest, app_id):
+def accept_application(request: APIRequest, app_id: uuid.UUID):
     application = get_object_or_404(Apply, id=app_id)
     if (
         len(application.team.team_members.all())
@@ -95,7 +96,7 @@ def accept_application(request: APIRequest, app_id):
 
 
 @team_router.post("/decline_application", response={200: Successful})
-def decline_application(request: APIRequest, app_id):
+def decline_application(request: APIRequest, app_id: uuid.UUID):
     application = get_object_or_404(Apply, id=app_id)
     application.delete()
     return 200, {"success": "ok"}
@@ -105,7 +106,9 @@ def decline_application(request: APIRequest, app_id):
     path="/{team_id}/add_user",
     response={201: TeamSchema, 401: Error, 404: Error, 403: Error, 400: Error},
 )
-def add_user_to_team(request: APIRequest, team_id: int, email_schema: AddUserToTeam):
+def add_user_to_team(
+    request: APIRequest, team_id: uuid.UUID, email_schema: AddUserToTeam
+):
     me = request.user
     team = get_object_or_404(Team, id=team_id)
     try:
@@ -145,7 +148,7 @@ def add_user_to_team(request: APIRequest, team_id: int, email_schema: AddUserToT
     response={201: TeamSchema, 401: Error, 404: Error, 403: Error, 400: Error},
 )
 def remove_user_from_team(
-    request: APIRequest, team_id: int, email_schema: AddUserToTeam
+    request: APIRequest, team_id: uuid.UUID, email_schema: AddUserToTeam
 ):
     me = request.user
     team = get_object_or_404(Team, id=team_id)
@@ -166,7 +169,7 @@ def remove_user_from_team(
     path="/join-team",
     response={403: Error, 200: TeamSchema, 401: Error, 400: Error},
 )
-def join_team(request: APIRequest, team_id: int, token: str):
+def join_team(request: APIRequest, team_id: uuid.UUID, token: str):
     user = request.user
     tkn = get_object_or_404(Token, token=token)
     if not tkn.is_active:
@@ -191,7 +194,7 @@ def join_team(request: APIRequest, team_id: int, token: str):
 @team_router.post(
     path="/leave-team", response={200: Successful, ERROR_CODES: ErrorSchema}
 )
-def leave_team(request: APIRequest, team_id: int):
+def leave_team(request: APIRequest, team_id: uuid.UUID):
     team = get_object_or_404(Team, id=team_id)
     if request.user not in team.team_members.all():
         return 400, ErrorSchema(detail="you are not member of this team")
@@ -224,7 +227,7 @@ def leave_team(request: APIRequest, team_id: int):
     response={200: TeamSchemaOut, 401: Error, 400: Error},
 )
 def edit_team(
-    request: APIRequest, id: int, edited_team: TeamIn
+    request: APIRequest, id: uuid.UUID, edited_team: TeamIn
 ) -> tuple[int, dict[str, Any]]:
     team = get_object_or_404(Team, id=id)
     team.name = edited_team.name
@@ -244,7 +247,7 @@ def edit_team(
 
 
 @team_router.get(path="/", response={200: List[TeamSchema], 400: Error})
-def get_teams(request: APIRequest, hackathon_id: int) -> tuple[int, list[Team]]:
+def get_teams(request: APIRequest, hackathon_id: uuid.UUID) -> tuple[int, list[Team]]:
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
     teams = Team.objects.filter(hackathon=hackathon).all()
     return 200, teams
@@ -252,7 +255,7 @@ def get_teams(request: APIRequest, hackathon_id: int) -> tuple[int, list[Team]]:
 
 @team_router.get("/team_vacancies", response={200: list[VacancySchemaOut]})
 def get_team_vacancies(
-    request: APIRequest, id: int
+    request: APIRequest, id: uuid.UUID
 ) -> tuple[int, list[dict[str, Any]]]:
     team = Team.objects.filter(id=id).first()
     vacancies = Vacancy.objects.filter(team=team).all()
@@ -271,7 +274,7 @@ def get_team_vacancies(
     response={200: UserSuggesionForVacansionSchema, 404: Error},
 )
 def get_suggest_users_for_specific_vacansion(
-    request: APIRequest, vacansion_id: int
+    request: APIRequest, vacansion_id: uuid.UUID
 ) -> tuple[int, dict[str, Any]]:
     user = request.user
     user_id = user.id
@@ -347,7 +350,7 @@ def get_suggest_users_for_specific_vacansion(
     response={200: VacansionSuggesionForUserSchema, 404: Error},
 )
 def get_suggest_vacansions_for_specific_user(
-    request: APIRequest, resume_id: int
+    request: APIRequest, resume_id: uuid.UUID
 ) -> tuple[int, dict[str, Any]]:
     resume = get_object_or_404(Resume, id=resume_id)
     softs = SoftSkillTag.objects.filter(resume=resume).all()
@@ -381,7 +384,7 @@ def get_suggest_vacansions_for_specific_user(
 
 
 @team_router.post(path="/apply_for_job", response={400: Error})
-def apply_for_job(request: APIRequest, vac_id) -> tuple[int, str]:
+def apply_for_job(request: APIRequest, vac_id: uuid.UUID) -> tuple[int, str]:
     vacancy = Vacancy.objects.filter(id=vac_id).first()
     team_owner_email = vacancy.team.creator.email
     user = request.user
@@ -407,7 +410,7 @@ def apply_for_job(request: APIRequest, vac_id) -> tuple[int, str]:
 
 @team_router.get(path="/get_applies_for_team", response={200: List[ApplierSchema]})
 def get_team_applies(
-    request: APIRequest, team_id: int
+    request: APIRequest, team_id: uuid.UUID
 ) -> tuple[int, list[dict[str, Any]]]:
     team = Team.objects.filter(id=team_id).first()
     applies = Apply.objects.filter(team=team).all()
@@ -425,7 +428,9 @@ def get_team_applies(
 
 
 @team_router.get(path="/{team_id}", response={200: TeamById})
-def get_team_by_id(request: APIRequest, team_id: int) -> tuple[int, dict[str, Any]]:
+def get_team_by_id(
+    request: APIRequest, team_id: uuid.UUID
+) -> tuple[int, dict[str, Any]]:
     team = get_object_or_404(Team, id=team_id)
     return 200, {
         "id": team.id,
@@ -444,7 +449,7 @@ def get_team_by_id(request: APIRequest, team_id: int) -> tuple[int, dict[str, An
     response={200: TeamSchema, 401: Error, 400: Error, 404: Error},
 )
 def merge_teams(
-    request: APIRequest, team1_id: int, team2_id: int
+    request: APIRequest, team1_id: uuid.UUID, team2_id: uuid.UUID
 ) -> tuple[int, list[Team]]:
     team1 = get_object_or_404(Team, id=team1_id)
     team2 = get_object_or_404(Team, id=team2_id)
@@ -457,7 +462,9 @@ def merge_teams(
 @team_router.get(
     path="/analytic/{hackathon_id}", response={200: AnalyticsSchema, 404: Error}
 )
-def analytics(request: APIRequest, hackathon_id: int) -> tuple[int, dict[str, Any]]:
+def analytics(
+    request: APIRequest, hackathon_id: uuid.UUID
+) -> tuple[int, dict[str, Any]]:
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
     users = []
     teams = Team.objects.filter(hackathon_id=hackathon_id)
@@ -477,7 +484,7 @@ def analytics(request: APIRequest, hackathon_id: int) -> tuple[int, dict[str, An
     response={200: AnalyticsDiffSchema, 404: Error},
 )
 def analytics_difficulty(
-    request: APIRequest, hackathon_id: int
+    request: APIRequest, hackathon_id: uuid.UUID
 ) -> tuple[int, dict[str, Any]]:
     teams = Team.objects.filter(hackathon_id=hackathon_id)
     count = 0
@@ -497,7 +504,7 @@ def analytics_difficulty(
     path="/analytic_skills/{hackathon_id}", response={200: SkillsAnalytics, 404: Error}
 )
 def analytics_skills(
-    request: APIRequest, hackathon_id: int
+    request: APIRequest, hackathon_id: uuid.UUID
 ) -> tuple[int, dict[str, Any]]:
     teams = Team.objects.filter(hackathon_id=hackathon_id).all()
     keywords_list = []
@@ -518,7 +525,7 @@ def analytics_skills(
     path="/hackathon_summary/{hackathon_id}",
     response={200: dict},
 )
-def hackathon_summary(request: APIRequest, hackathon_id: int) -> dict:
+def hackathon_summary(request: APIRequest, hackathon_id: uuid.UUID) -> dict:
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
 
     # Общее количество команд
@@ -574,7 +581,7 @@ def hackathon_summary(request: APIRequest, hackathon_id: int) -> dict:
 @team_router.get(
     "/hackathon/{hackathon_id}/participants_without_team", response=List[ParticipantOut]
 )
-def participants_without_team(request, hackathon_id: int):
+def participants_without_team(request, hackathon_id: uuid.UUID):
     # Получаем хакатон по id
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
 
@@ -602,7 +609,7 @@ def participants_without_team(request, hackathon_id: int):
 
 
 @team_router.get("/hackathon/{hackathon_id}/pending_invitations", response=List[str])
-def pending_invitations(request, hackathon_id: int):
+def pending_invitations(request, hackathon_id: uuid.UUID):
     # Получаем хакатон по id
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
 

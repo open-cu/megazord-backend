@@ -3,6 +3,7 @@ from django.test import TestCase
 from ninja.testing import TestClient
 
 from megazord.api.auth import BadCredentials
+
 from .api import router
 
 
@@ -16,7 +17,7 @@ class TestAccountsAPI(TestCase):
             "is_organizator": False,
             "age": 12,
             "city": "test_city",
-            "work_experience": 12
+            "work_experience": 12,
         }
         self.register_schema = self.user_schema | {"password": "test_password"}
 

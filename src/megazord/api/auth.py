@@ -1,4 +1,5 @@
-from datetime import timedelta, datetime, timezone
+import uuid
+from datetime import datetime, timedelta, timezone
 
 import jwt
 from django.core.exceptions import ObjectDoesNotExist
@@ -6,6 +7,7 @@ from ninja.security import HttpBearer
 
 from accounts.models import Account
 from megazord.settings import SECRET_KEY
+
 from .requests import APIRequest
 
 JWT_ALGORITHM = "HS256"
@@ -50,16 +52,15 @@ class AuthBearer(HttpBearer):
 
 
 def create_jwt(
-        user_id: int,
-        expires_delta: timedelta = timedelta(weeks=4)
+    user_id: uuid.UUID, expires_delta: timedelta = timedelta(weeks=4)
 ) -> str:
     expire = datetime.now(timezone.utc) + expires_delta
-    jwt_data = {"user_id": user_id, "iat": datetime.now(timezone.utc).timestamp(), "exp": expire}
-    token = jwt.encode(
-        payload=jwt_data,
-        key=SECRET_KEY,
-        algorithm=JWT_ALGORITHM
-    )
+    jwt_data = {
+        "user_id": str(user_id),
+        "iat": datetime.now(timezone.utc).timestamp(),
+        "exp": expire,
+    }
+    token = jwt.encode(payload=jwt_data, key=SECRET_KEY, algorithm=JWT_ALGORITHM)
 
     return token
 
@@ -69,9 +70,6 @@ def validate_jwt(token: str) -> dict:
         jwt=token,
         key=SECRET_KEY,
         algorithms=[JWT_ALGORITHM],
-        options={
-            "validate_exp": True,
-            "validate_ait": True
-        }
+        options={"validate_exp": True, "validate_ait": True},
     )
     return payload

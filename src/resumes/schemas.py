@@ -1,3 +1,5 @@
+import uuid
+
 from django.core.exceptions import ObjectDoesNotExist
 from ninja import Field, ModelSchema, Schema
 
@@ -5,7 +7,7 @@ from resumes.models import Resume
 
 
 class ResumeCreateSchema(ModelSchema):
-    hackathon_id: int
+    hackathon_id: uuid.UUID
     tech: list[str]
     soft: list[str]
 
@@ -20,7 +22,7 @@ class ResumeUpdateSchema(ResumeCreateSchema):
 
 
 class ResumeSchema(ModelSchema):
-    hackathon_id: int = Field(alias="hackathon.id")
+    hackathon_id: uuid.UUID = Field(alias="hackathon.id")
     role: str | None
     tech: list[str] = []
     soft: list[str] = []

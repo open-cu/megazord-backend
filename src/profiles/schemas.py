@@ -1,18 +1,24 @@
-from ninja import Field, Schema
+from ninja import ModelSchema
+
+from accounts.models import Account
 
 
-class ProfileSchema(Schema):
-    id: int
-    username: str
-    email: str
-    is_organizator: bool
-    age: int | None
-    city: str | None
-    work_experience: int | None
+class ProfileSchema(ModelSchema):
+    class Config:
+        model = Account
+        model_fields = [
+            "id",
+            "username",
+            "email",
+            "is_organizator",
+            "age",
+            "city",
+            "work_experience",
+        ]
 
 
-class ProfileEditSchema(Schema):
-    username: str | None = Field(min_length=1, max_length=30, default=None)
-    age: int | None = None
-    city: str | None = None
-    work_experience: int | None = None
+class ProfileEditSchema(ModelSchema):
+    class Config:
+        model = Account
+        model_fields = ["username", "age", "city", "work_experience"]
+        model_fields_optional = ["username", "age", "city", "work_experience"]

@@ -1,3 +1,5 @@
+import uuid
+
 from django.shortcuts import get_object_or_404
 from ninja import File, Router, UploadedFile
 
@@ -28,7 +30,7 @@ def create_project(
 
 @router.get(path="/", response={200: list[ProjectSchema], 401: ErrorSchema})
 def get_projects(
-    request: APIRequest, resume_id: int
+    request: APIRequest, resume_id: uuid.UUID
 ) -> tuple[int, list[ProjectSchema]]:
     resume = get_object_or_404(Resume, id=resume_id)
     projects = ProjectModel.objects.filter(resume=resume)

@@ -38,7 +38,9 @@ class MyAccountManager(BaseUserManager):
 
 
 class Account(AbstractBaseUser):
-    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False, unique=True
+    )
     email = models.EmailField(verbose_name="email", max_length=60, unique=True)
     username = models.CharField(max_length=30)
     age = models.IntegerField(blank=True, null=True)

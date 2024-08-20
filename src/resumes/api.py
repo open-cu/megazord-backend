@@ -1,5 +1,6 @@
 import json
 import re
+import uuid
 
 import requests
 from bs4 import BeautifulSoup
@@ -54,7 +55,9 @@ def create_custom_resume(
 
 
 @router.get(path="/get", response={200: ResumeSchema, ERROR_CODES: ErrorSchema})
-def get_resume(request: APIRequest, hackathon_id: int, user_id: int) -> Resume:
+def get_resume(
+    request: APIRequest, hackathon_id: uuid.UUID, user_id: uuid.UUID
+) -> Resume:
     resume = get_object_or_404(Resume, user=user_id, hackathon_id=hackathon_id)
 
     return resume
