@@ -44,3 +44,30 @@ def get_profile(request: APIRequest, user_id: int) -> Account:
     user = get_object_or_404(Account, id=user_id)
 
     return user
+
+
+@router.post(
+    path="/link_telegram",
+    summary="Link Telegram ID",
+    response={200: dict, 404: ErrorSchema},
+)
+def link_telegram(request: APIRequest, user_uuid: str, telegram_id: str):
+    user = get_object_or_404(Account, uuid=user_uuid)
+
+    user.telegram_id = telegram_id
+    user.save()
+
+    return {"detail": "Telegram ID привязан успешно"}
+
+
+@router.get(
+    path="/generate_telegram_link",
+    summary="Generate Telegram Link",
+    response={200: dict, 401: ErrorSchema},
+)
+def generate_telegram_link(request: APIRequest) -> dict:
+    user = request.user
+
+    telegram_link = f"https://t.me/FindYourMate_bot?start={str(user.uuid)}"
+
+    return {"telegram_link": telegram_link}
