@@ -6,6 +6,8 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.db import models
 from django.utils import timezone
 
+from megazord.settings import CONFIRMATION_CODE_TTL
+
 
 class MyAccountManager(BaseUserManager):
     def create_user(
@@ -104,7 +106,7 @@ class ConfirmationCode(models.Model):
     expire_at = models.DateTimeField()
 
     def save(self, *args, **kwargs):
-        self.expire_at = timezone.now() + timedelta(hours=1)
+        self.expire_at = timezone.now() + timedelta(minutes=CONFIRMATION_CODE_TTL)
         super().save(*args, **kwargs)
 
     @classmethod
