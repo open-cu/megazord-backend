@@ -17,6 +17,7 @@
 
 ### Bug Fixes
 
+- Add frontend url to settings (#73) - ([2a73566](https://github.com/open-cu/megazord-backend/commit/2a7356639e3dfeb2193d54056fced191c1664041))
 - Store images as binary (#65) - ([0871dd0](https://github.com/open-cu/megazord-backend/commit/0871dd004b37836a404bb3504deab65504a6132b))
 - Email validation & url in mail template (#58) - ([ac62f45](https://github.com/open-cu/megazord-backend/commit/ac62f451d575432d40b68b5e4fcca26ecd00400c))
 - Optional role provide when joining the hackathon (#54) - ([25b3e14](https://github.com/open-cu/megazord-backend/commit/25b3e1441c7e0ae36f52e59555be6fa2f25d05a5))
