@@ -26,7 +26,7 @@ class TestResumesAPI(TestCase):
 
         self.resume_schema = {
             "bio": "test",
-            "hackathon_id": self.hackathon.id,
+            "hackathon_id": str(self.hackathon.id),
             "tech": ["tech1", "tech2"],
             "soft": ["soft1", "soft2"],
             "github": "test_github",
@@ -44,13 +44,16 @@ class TestResumesAPI(TestCase):
         self.assertEqual(response.status_code, 201)
         response_data = response.json()
         del response_data["id"]
+
+        response_data["hackathon_id"] = str(response_data["hackathon_id"])
+
         self.assertEqual(response_data, self.resume_schema)
 
     def test_resume_duplicate(self) -> None:
+        self.api_client.post(
+            path="/create/custom", json=self.resume_schema, user=self.user
+        )
         with self.assertRaises(IntegrityError):
-            self.api_client.post(
-                path="/create/custom", json=self.resume_schema, user=self.user
-            )
             self.api_client.post(
                 path="/create/custom", json=self.resume_schema, user=self.user
             )
@@ -66,6 +69,9 @@ class TestResumesAPI(TestCase):
         self.assertEqual(response.status_code, 200)
         response_data = response.json()
         del response_data["id"]
+
+        response_data["hackathon_id"] = str(response_data["hackathon_id"])
+
         self.assertEqual(response_data, self.resume_schema)
 
     def test_resume_edit(self) -> None:
@@ -83,4 +89,7 @@ class TestResumesAPI(TestCase):
         self.assertEqual(response.status_code, 200)
         response_data = response.json()
         del response_data["id"]
+
+        response_data["hackathon_id"] = str(response_data["hackathon_id"])
+
         self.assertEqual(response_data, new_resume)
