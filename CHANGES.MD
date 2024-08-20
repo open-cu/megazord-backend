@@ -3,6 +3,7 @@
 
 ### Features
 
+- Add account confirmation (#69) - ([5325693](https://github.com/open-cu/megazord-backend/commit/5325693a63876c66d59f0d30724bbe15252fefc6))
 - Add mail notification when user kicked from team (#67) - ([1df91cf](https://github.com/open-cu/megazord-backend/commit/1df91cf62f9c9157bf3aa184a2dae8b5ad054c92))
 - Add endpoint for send invites to hackathon (#61) - ([af858f6](https://github.com/open-cu/megazord-backend/commit/af858f6de08e08c335352c3fd9c61dc9deb70681))
 - Get user role in resume (#56) - ([b7ff6d5](https://github.com/open-cu/megazord-backend/commit/b7ff6d59abf00974079494c9905b682c72bba1c7))
