@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 
 from accounts.models import Account, Email
@@ -8,6 +10,8 @@ class Hackathon(models.Model):
         NOT_STARTED = "NOT_STARTED"
         STARTED = "STARTED"
         ENDED = "ENDED"
+
+    id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
 
     creator = models.ForeignKey(
         Account, on_delete=models.CASCADE, related_name="creator"
@@ -24,6 +28,9 @@ class Hackathon(models.Model):
     @property
     def accepted_invite(self):
         return self.participants.count()
+
+    def __str__(self):
+        return self.name
 
 
 class Role(models.Model):

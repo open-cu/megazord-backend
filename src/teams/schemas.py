@@ -1,3 +1,4 @@
+import uuid
 from typing import List, Optional
 
 from ninja import Field, Schema
@@ -24,20 +25,20 @@ class UserProfile(Schema):
 
 
 class ApplierSchema(Schema):
-    app_id: int
+    app_id: uuid.UUID
     team: int
     vac: int
     who_responsed: int
 
 
 class Account(Schema):
-    id: int
+    id: uuid.UUID
     email: str
     name: str
 
 
 class TeamById(Schema):
-    id: int
+    id: uuid.UUID
     hackathon: int
     name: str
     creator: int
@@ -45,7 +46,7 @@ class TeamById(Schema):
 
 
 class VacancySchema(BaseModel):
-    id: int
+    id: uuid.UUID
     name: str
     keywords: List[str]
 
@@ -55,13 +56,13 @@ class AddUserToTeam(Schema):
 
 
 class VacancySchemaOut(Schema):
-    id: int
+    id: uuid.UUID
     name: str
     keywords: List[str]
 
 
 class TeamSchemaOut(Schema):
-    id: int
+    id: uuid.UUID
     name: str
     vacancies: List[VacancySchema]
 
@@ -72,7 +73,7 @@ class TeamIn(Schema):
 
 
 class ApplyOut(Schema):
-    applier_id: int
+    applier_id: uuid.UUID
     vacancy_name: str
 
 
@@ -89,7 +90,7 @@ class SentEmail(Schema):
 
 
 class UserData(Schema):
-    id: int
+    id: uuid.UUID
     username: str = Field(..., min_length=1, max_length=30, required=True)
     email: str = Field(..., min_length=1, max_length=60, required=True)
     password: str = Field(..., min_length=6, required=True)
@@ -102,7 +103,7 @@ class UserData(Schema):
 
 
 class UserDataVac(Schema):
-    id: int
+    id: uuid.UUID
     username: str = Field(..., min_length=1, max_length=30, required=True)
     email: str = Field(..., min_length=1, max_length=60, required=True)
     password: str = Field(..., min_length=6, required=True)
@@ -113,13 +114,13 @@ class UserDataVac(Schema):
 
 
 class TeamData(Schema):
-    id: int
+    id: uuid.UUID
     name: str
     team_members: List[UserDataVac]
 
 
 class VacancyData(Schema):
-    id: int
+    id: uuid.UUID
     name: str
     keywords: List[str]
     team: TeamData
@@ -142,7 +143,7 @@ class AnalyticsDiffSchema(Schema):
 
 
 class ParticipantOut(Schema):
-    id: int
+    id: uuid.UUID
     email: str
     name: str
     role: str

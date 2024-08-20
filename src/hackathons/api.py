@@ -1,4 +1,5 @@
 import logging
+import uuid
 from smtplib import SMTPException
 from typing import Annotated, Any
 
@@ -86,7 +87,7 @@ def create_hackathon(
 )
 def join_hackathon(
     request: APIRequest,
-    hackathon_id: int,
+    hackathon_id: uuid.UUID,
     role_name: Annotated[str | None, Query(alias="role")] = None,
 ):
     user = request.user
@@ -119,7 +120,9 @@ def list_hackathons(request):
     path="/{hackathon_id}/send_invites",
     response={200: StatusOK, ERROR_CODES: ErrorSchema},
 )
-def send_invites(request: APIRequest, hackathon_id: int, emails_schema: EmailsSchema):
+def send_invites(
+    request: APIRequest, hackathon_id: uuid.UUID, emails_schema: EmailsSchema
+):
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
 
     if request.user != hackathon.creator:
@@ -144,7 +147,7 @@ def send_invites(request: APIRequest, hackathon_id: int, emails_schema: EmailsSc
     response={201: HackathonSchema, ERROR_CODES: Error},
 )
 def add_user_to_hackathon(
-    request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
+    request: APIRequest, hackathon_id: uuid.UUID, email_schema: AddUserToHack
 ):
     me = request.user
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
@@ -173,7 +176,7 @@ def add_user_to_hackathon(
     response={201: HackathonSchema, 401: Error, 404: Error, 403: Error, 400: Error},
 )
 def remove_user_from_hackathon(
-    request: APIRequest, hackathon_id: int, email_schema: AddUserToHack
+    request: APIRequest, hackathon_id: uuid.UUID, email_schema: AddUserToHack
 ):
     me = request.user
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
@@ -201,7 +204,7 @@ def remove_user_from_hackathon(
     path="/{id}",
     response={200: HackathonSchema, 401: Error, 400: Error, 403: Error, 404: Error},
 )
-def edit_hackathons(request: APIRequest, id: int, body: EditHackathon):
+def edit_hackathons(request: APIRequest, id: uuid.UUID, body: EditHackathon):
     hackathon = get_object_or_404(Hackathon, id=id)
     user = request.user
     if hackathon.creator == user:
@@ -226,7 +229,9 @@ def edit_hackathons(request: APIRequest, id: int, body: EditHackathon):
     path="/{id}/change_photo",
     response={200: HackathonSchema, 401: Error, 400: Error, 403: Error, 404: Error},
 )
-def change_photo(request: APIRequest, id: int, image_cover: UploadedFile = File(...)):
+def change_photo(
+    request: APIRequest, id: uuid.UUID, image_cover: UploadedFile = File(...)
+):
     hackathon = get_object_or_404(Hackathon, id=id)
     user = request.user
     if hackathon.creator == user:
@@ -241,7 +246,7 @@ def change_photo(request: APIRequest, id: int, image_cover: UploadedFile = File(
     path="/{id}",
     response={200: HackathonSchema, 401: Error, 400: Error, 404: Error},
 )
-def get_specific_hackathon(request: APIRequest, id: int) -> tuple[int, Hackathon]:
+def get_specific_hackathon(request: APIRequest, id: uuid.UUID) -> tuple[int, Hackathon]:
     hackathon = get_object_or_404(Hackathon, id=id)
     return 200, hackathon
 
@@ -258,15 +263,15 @@ def list_myhackathons(request):
 
 
 @hackathon_router.get(path="/get_user_team/{id}", response={200: TeamById, 404: Error})
-def get_user_team_in_hackathon(request: APIRequest, id: str):
+def get_user_team_in_hackathon(request: APIRequest, id: uuid.UUID):
     user = request.user
     user_id = user.id
-    hackathon = get_object_or_404(Hackathon, id=int(id))
+    hackathon = get_object_or_404(Hackathon, id=(id))
     teams = Team.objects.filter(hackathon=hackathon).all()
     if teams:
         for t in teams:
             for member in t.team_members.all():
-                if int(user_id) == int(member.id):
+                if (user_id) == (member.id):
                     return 200, {
                         "id": t.id,
                         "hackathon": t.hackathon.id,
@@ -290,7 +295,7 @@ def get_user_team_in_hackathon(request: APIRequest, id: str):
     response={200: StatusOK, 400: Error, 404: Error, 403: Error},
 )
 def upload_emails_to_hackathon(
-    request: APIRequest, hackathon_id: int, csv_file: UploadedFile = File(...)
+    request: APIRequest, hackathon_id: uuid.UUID, csv_file: UploadedFile = File(...)
 ):
     user = request.user
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
@@ -323,7 +328,7 @@ def upload_emails_to_hackathon(
     path="/{hackathon_id}/export",
     response={200: Any, 404: Error, 403: Error},
 )
-def export_participants_hackathon(request: APIRequest, hackathon_id: int):
+def export_participants_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
     user = request.user
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
 
@@ -344,7 +349,7 @@ def export_participants_hackathon(request: APIRequest, hackathon_id: int):
     path="/{hackathon_id}/start",
     response={200: StatusOK, ERROR_CODES: ErrorSchema},
 )
-def start_hackathon(request: APIRequest, hackathon_id: int):
+def start_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
     if hackathon.creator != request.user:
         return 403, ErrorSchema(
@@ -365,6 +370,22 @@ def start_hackathon(request: APIRequest, hackathon_id: int):
         logger.critical(exc)
         return 500, ErrorSchema(detail="Failed to send email")
 
+    # try:
+    #     for email_obj in hackathon.emails.all():
+    #         try:
+    #             account = Account.objects.get(email=email_obj.email)
+    #             if account.telegram_id:
+    #                 telegram_message = (
+    #                     f"🎉 Приглашение в хакатон {hackathon.name}!\n"
+    #                     f"Для принятия участия, перейдите по ссылке: http://localhost:3000/join-hackathon?hackathon_id={hackathon.id}"
+    #                 )
+    #                 send_telegram_invitation(account.telegram_id, telegram_message)
+    #         except Account.DoesNotExist:
+    #             logger.warning(f"No account found for email: {email_obj.email}")
+    # except Exception as e:
+    #     logger.critical(f"Failed to send telegram message: {e}")
+    #     return 500, ErrorSchema(detail="Failed to send telegram messages")
+
     return 200, StatusOK()
 
 
@@ -372,7 +393,7 @@ def start_hackathon(request: APIRequest, hackathon_id: int):
     path="/{hackathon_id}/end",
     response={200: StatusOK, ERROR_CODES: ErrorSchema},
 )
-def end_hackathon(request: APIRequest, hackathon_id: int):
+def end_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
     if hackathon.creator != request.user:
         return 403, ErrorSchema(

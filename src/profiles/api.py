@@ -1,3 +1,5 @@
+import uuid
+
 from django.shortcuts import get_object_or_404
 from ninja import Router
 
@@ -40,7 +42,7 @@ def profile_patch(request: APIRequest, edit_schema: ProfileEditSchema) -> Accoun
     path="/profiles/{user_id}",
     response={200: ProfileSchema, 401: ErrorSchema, 404: ErrorSchema},
 )
-def get_profile(request: APIRequest, user_id: int) -> Account:
+def get_profile(request: APIRequest, user_id: uuid.UUID) -> Account:
     user = get_object_or_404(Account, id=user_id)
 
     return user
@@ -51,8 +53,8 @@ def get_profile(request: APIRequest, user_id: int) -> Account:
     summary="Link Telegram ID",
     response={200: dict, 404: ErrorSchema},
 )
-def link_telegram(request: APIRequest, user_uuid: str, telegram_id: str):
-    user = get_object_or_404(Account, uuid=user_uuid)
+def link_telegram(request: APIRequest, user_id: uuid.UUID, telegram_id: str):
+    user = get_object_or_404(Account, uuid=user_id)
 
     user.telegram_id = telegram_id
     user.save()
@@ -68,6 +70,6 @@ def link_telegram(request: APIRequest, user_uuid: str, telegram_id: str):
 def generate_telegram_link(request: APIRequest) -> dict:
     user = request.user
 
-    telegram_link = f"https://t.me/FindYourMate_bot?start={str(user.uuid)}"
+    telegram_link = f"https://t.me/FindYourMate_bot?start={(user.uuid)}"
 
     return {"telegram_link": telegram_link}
