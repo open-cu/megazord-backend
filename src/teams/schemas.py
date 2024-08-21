@@ -26,9 +26,9 @@ class UserProfile(Schema):
 
 class ApplierSchema(Schema):
     app_id: uuid.UUID
-    team: int
-    vac: int
-    who_responsed: int
+    team: uuid.UUID
+    vac: uuid.UUID
+    who_responsed: uuid.UUID
 
 
 class Account(Schema):
@@ -39,9 +39,9 @@ class Account(Schema):
 
 class TeamById(Schema):
     id: uuid.UUID
-    hackathon: int
+    hackathon: uuid.UUID
     name: str
-    creator: int
+    creator: uuid.UUID
     team_members: List[Account]
 
 

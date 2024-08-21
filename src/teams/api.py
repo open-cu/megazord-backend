@@ -1,3 +1,4 @@
+import logging
 import uuid
 from collections import Counter
 from datetime import datetime
@@ -16,6 +17,7 @@ from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema
 from megazord.settings import FRONTEND_URL, SECRET_KEY
 from resumes.models import HardSkillTag, Resume, SoftSkillTag
+from utils.telegram import send_telegram_message
 from vacancies.models import Apply, Keyword, Vacancy
 
 from .models import Team, Token
@@ -36,6 +38,8 @@ from .schemas import (
     VacancySchemaOut,
     VacansionSuggesionForUserSchema,
 )
+
+logger = logging.getLogger(__name__)
 
 team_router = Router()
 
@@ -113,11 +117,13 @@ def add_user_to_team(
     team = get_object_or_404(Team, id=team_id)
     try:
         user_to_add = Account.objects.get(email=email_schema.email)
-    except:
+    except Account.DoesNotExist:
         user_to_add = None
+
     if team.creator == me:
         if user_to_add and team.creator == user_to_add:
             return 400, {"details": "user is creator team"}
+
         encoded_jwt = jwt.encode(
             {
                 "createdAt": datetime.utcnow().timestamp(),
@@ -128,6 +134,7 @@ def add_user_to_team(
             SECRET_KEY,
             algorithm="HS256",
         )
+
         try:
             Token.objects.create(token=encoded_jwt, is_active=True)
             send_mail(
@@ -140,8 +147,18 @@ def add_user_to_team(
                 from_email="",
                 recipient_list=[email_schema.email],
             )
+
+            if user_to_add and user_to_add.telegram_id:
+                telegram_message = (
+                    f"👥 Приглашение в команду {team.name}!\n"
+                    f"Для принятия приглашения перейдите по ссылке: {FRONTEND_URL}/join-team?team_id={encoded_jwt}"
+                )
+                send_telegram_message(user_to_add.telegram_id, telegram_message)
+
         except Exception as e:
-            print(e)
+            logger.error(f"Failed to send invitation: {e}")
+            return 500, {"details": "Failed to send invitation"}
+
         return 201, team
     else:
         return 403, {"details": "You are not creator and you can't edit this hackathon"}
@@ -157,6 +174,7 @@ def remove_user_from_team(
     me = request.user
     team = get_object_or_404(Team, id=team_id)
     user_to_remove = get_object_or_404(Account, email=email_schema.email)
+
     if team.creator == me:
         if user_to_remove != team.creator:
             if user_to_remove in team.team_members.all():
@@ -169,11 +187,18 @@ def remove_user_from_team(
                     from_email="",
                     recipient_list=[user_to_remove.email],
                 )
-            return 201, team
+
+                if user_to_remove.telegram_id:
+                    telegram_message = f"🚫 Вас исключили из команды {team.name}.\n"
+                    send_telegram_message(user_to_remove.telegram_id, telegram_message)
+
+                return 201, team
+            else:
+                return 400, {"detail": "User is not a member of this team"}
         else:
-            return 400, {"detail": "This user is creator of team"}
+            return 400, {"detail": "This user is the creator of the team"}
     else:
-        return 403, {"detail": "You are not creator and you can't edit this team"}
+        return 403, {"detail": "You are not the creator and cannot edit this team"}
 
 
 @team_router.post(
@@ -220,8 +245,10 @@ def leave_team(request: APIRequest, team_id: uuid.UUID):
             team.save()
 
             template_name = "teams/new_team_owner.html"
+            telegram_message = f"👤 Ты назначен тимлидом команды {team.name}!"
         else:
             template_name = "teams/user_left_team.html"
+            telegram_message = f"👤 {request.user.email} покинул команду {team.name}"
 
         send_mail(
             template_name=template_name,
@@ -229,6 +256,9 @@ def leave_team(request: APIRequest, team_id: uuid.UUID):
             from_email="",
             recipient_list=[team.creator.email],
         )
+
+        if team.creator.telegram_id:
+            send_telegram_message(team.creator.telegram_id, telegram_message)
 
     return 200, Successful(success="ok")
 
@@ -410,12 +440,19 @@ def apply_for_job(request: APIRequest, vac_id: uuid.UUID) -> tuple[int, str]:
                 from_email="",
                 recipient_list=[team_owner_email],
             )
+
+            if vacancy.team.creator.telegram_id:
+                telegram_message = f"📩 {user.email} откликнулся на вакансию в команде {vacancy.team.name}"
+                send_telegram_message(
+                    vacancy.team.creator.telegram_id, telegram_message
+                )
+
         except Exception as e:
             print(e)
 
     else:
         return 400, {
-            "details": "You cant join this team because it reached  max participants"
+            "details": "You can't join this team because it reached max participants"
         }
 
 

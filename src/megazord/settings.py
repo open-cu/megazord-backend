@@ -162,3 +162,5 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Confirmation code TTL in minutes
 CONFIRMATION_CODE_TTL = env.int("CONFIRMATION_CODE_TTL", default=2)
+
+TELEGRAM_BOT_TOKEN = env.str("TELEGRAM_BOT_TOKEN", default="228")
