@@ -6,11 +6,12 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.db import models
 from django.utils import timezone
 
+from accounts.entities import AccountEntity, EmailEntity
 from megazord.settings import CONFIRMATION_CODE_TTL
 
 
 class MyAccountManager(BaseUserManager):
-    def create_user(
+    async def create_user(
         self,
         email: str,
         username: str,
@@ -43,11 +44,11 @@ class MyAccountManager(BaseUserManager):
             user.work_experience = work_experience
 
         user.set_password(password)
-        user.save(using=self._db)
+        await user.asave(using=self._db)
         return user
 
-    def create_superuser(self, email, username, password, is_organizator):
-        user = self.create_user(
+    async def create_superuser(self, email, username, password, is_organizator):
+        user = await self.create_user(
             email=self.normalize_email(email),
             password=password,
             username=username,
@@ -56,7 +57,7 @@ class MyAccountManager(BaseUserManager):
         user.is_admin = True
         user.is_staff = True
         user.is_superuser = True
-        user.save(using=self._db)
+        await user.asave(using=self._db)
         return user
 
 
@@ -92,12 +93,33 @@ class Account(AbstractBaseUser):
     def has_module_perms(self, app_label):
         return True
 
+    async def to_entity(self) -> AccountEntity:
+        return AccountEntity(
+            id=self.id,
+            email=self.email,
+            username=self.username,
+            age=self.age,
+            city=self.city,
+            work_experience=self.work_experience,
+            is_organizator=self.is_organizator,
+            date_joined=self.date_joined,
+            last_login=self.last_login,
+            is_admin=self.is_admin,
+            is_active=self.is_active,
+            is_staff=self.is_staff,
+            is_superuser=self.is_superuser,
+            telegram_id=self.telegram_id,
+        )
+
 
 class Email(models.Model):
     email = models.EmailField(unique=True)
 
     def __str__(self):
         return self.email
+
+    async def to_entity(self) -> EmailEntity:
+        return EmailEntity(email=self.email)
 
 
 class ConfirmationCode(models.Model):
@@ -108,12 +130,19 @@ class ConfirmationCode(models.Model):
     expire_at = models.DateTimeField()
 
     def save(self, *args, **kwargs):
-        self.expire_at = timezone.now() + timedelta(minutes=CONFIRMATION_CODE_TTL)
+        self._update_expire_at()
         super().save(*args, **kwargs)
 
+    async def asave(self, *args, **kwargs):
+        self._update_expire_at()
+        await super().asave(*args, **kwargs)
+
+    def _update_expire_at(self):
+        self.expire_at = timezone.now() + timedelta(minutes=CONFIRMATION_CODE_TTL)
+
     @classmethod
-    def generate(cls, user: Account):
-        code, _ = ConfirmationCode.objects.update_or_create(
+    async def generate(cls, user: Account):
+        code, _ = await ConfirmationCode.objects.aupdate_or_create(
             user=user,
             defaults={"code": randint(100_000, 999_999)},
         )

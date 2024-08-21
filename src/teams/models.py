@@ -4,6 +4,7 @@ from django.db import models
 
 from accounts.models import Account
 from hackathons.models import Hackathon
+from teams.entities import TeamEntity
 
 
 class Team(models.Model):
@@ -14,6 +15,17 @@ class Team(models.Model):
     name = models.CharField(max_length=200, blank=False)
     creator = models.ForeignKey(Account, on_delete=models.CASCADE)
     team_members = models.ManyToManyField(Account, related_name="team_members")
+
+    async def to_entity(self) -> TeamEntity:
+        return TeamEntity(
+            id=self.id,
+            hackathon=await self.hackathon.to_entity(),
+            name=self.name,
+            creator=await self.creator.to_entity(),
+            team_members=[
+                await member.to_entity() async for member in self.team_members.all()
+            ],
+        )
 
 
 class Token(models.Model):

@@ -18,7 +18,7 @@ def get_emails_from_csv(file: UploadedFile) -> list[str]:
     return emails
 
 
-def make_csv(hackathon) -> str:
+async def make_csv(hackathon) -> str:
     # Создание объекта для записи CSV
     csv_output = StringIO()
     csv_writer = csv.writer(csv_output)
@@ -29,11 +29,13 @@ def make_csv(hackathon) -> str:
     # Получение списка команд и их участников
     teams = Team.objects.filter(hackathon=hackathon).prefetch_related("team_members")
 
-    for team in teams:
-        for participant in team.team_members.all():
+    async for team in teams:
+        async for participant in team.team_members.all():
             # Получаем резюме участника, если оно существует
             try:
-                resume = Resume.objects.get(user=participant, hackathon=hackathon)
+                resume = await Resume.objects.aget(
+                    user=participant, hackathon=hackathon
+                )
                 github = (
                     resume.github or "N/A"
                 )  # Используем GitHub из резюме, если оно существует
@@ -42,7 +44,9 @@ def make_csv(hackathon) -> str:
 
             # Получаем роль участника в хакатоне через таблицу UserRole
             try:
-                user_role = UserRole.objects.get(user=participant, hackathon=hackathon)
+                user_role = await UserRole.objects.aget(
+                    user=participant, hackathon=hackathon
+                )
                 role = user_role.role.name
             except UserRole.DoesNotExist:
                 role = "N/A"
@@ -61,17 +65,19 @@ def make_csv(hackathon) -> str:
     participants_without_team = hackathon.participants.exclude(
         id__in=teams.values_list("team_members__id", flat=True)
     )
-    for participant in participants_without_team:
+    async for participant in participants_without_team:
         # Получаем резюме участника, если оно существует
         try:
-            resume = Resume.objects.get(user=participant, hackathon=hackathon)
+            resume = await Resume.objects.aget(user=participant, hackathon=hackathon)
             github = resume.github or "N/A"
         except Resume.DoesNotExist:
             github = "N/A"
 
         # Получаем роль участника в хакатоне через таблицу UserRole
         try:
-            user_role = UserRole.objects.get(user=participant, hackathon=hackathon)
+            user_role = await UserRole.objects.aget(
+                user=participant, hackathon=hackathon
+            )
             role = user_role.role.name
         except UserRole.DoesNotExist:
             role = "N/A"

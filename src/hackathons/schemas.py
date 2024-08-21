@@ -1,53 +1,27 @@
 import base64
 import uuid
-from enum import StrEnum
-from typing import Any
 
-from django.core.exceptions import ObjectDoesNotExist
 from ninja import Schema
 from pydantic import EmailStr
 
-from hackathons.models import Hackathon
-from megazord.api.requests import APIRequest
+from hackathons.entities import HackathonEntity, HackathonStatus
 from profiles.schemas import ProfileSchema
-
-
-class HackathonStatus(StrEnum):
-    NOT_STARTED = "NOT_STARTED"
-    STARTED = "STARTED"
-    ENDED = "ENDED"
 
 
 class HackathonSchema(Schema):
     id: uuid.UUID
-    creator_id: uuid.UUID
+    creator: ProfileSchema
     name: str
     status: HackathonStatus
     image_cover: str
     description: str
-    min_participants: int | None
-    max_participants: int | None
+    min_participants: int
+    max_participants: int
     participants: list[ProfileSchema]
     roles: list[str]
-    role: str | None
 
     @staticmethod
-    def resolve_roles(obj: Hackathon) -> list[str]:
-        return [role.name for role in obj.roles.all()]
-
-    @staticmethod
-    def resolve_role(obj: Hackathon, context: dict[str, Any]) -> str | None:
-        request: APIRequest = context["request"]
-
-        try:
-            role = obj.roles.get(users=request.user).name
-        except ObjectDoesNotExist:
-            role = None
-
-        return role
-
-    @staticmethod
-    def resolve_image_cover(obj: Hackathon) -> str:
+    def resolve_image_cover(obj: HackathonEntity) -> str:
         return base64.b64encode(obj.image_cover).decode()
 
 

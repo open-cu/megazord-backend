@@ -3,6 +3,7 @@ import uuid
 from django.db import models
 
 from accounts.models import Account, Email
+from hackathons.entities import HackathonEntity, HackathonStatus
 
 
 class Hackathon(models.Model):
@@ -22,15 +23,29 @@ class Hackathon(models.Model):
     description = models.TextField(null=False, default="описание хакатона")
     min_participants = models.IntegerField(null=True, default=3)
     max_participants = models.IntegerField(null=True, default=5)
-    participants = models.ManyToManyField(Account, related_name="participants")
+    participants = models.ManyToManyField(Account)
     emails = models.ManyToManyField(Email, related_name="emails")
-
-    @property
-    def accepted_invite(self):
-        return self.participants.count()
 
     def __str__(self):
         return self.name
+
+    async def to_entity(self) -> HackathonEntity:
+        return HackathonEntity(
+            id=self.id,
+            creator=await self.creator.to_entity(),
+            name=self.name,
+            status=HackathonStatus(self.status),
+            image_cover=self.image_cover,
+            description=self.description,
+            min_participants=self.min_participants,
+            max_participants=self.max_participants,
+            participants=[
+                await participant.to_entity()
+                async for participant in self.participants.all()
+            ],
+            emails=[await email.to_entity() async for email in self.emails.all()],
+            roles=[role.name async for role in self.roles.all()],
+        )
 
 
 class Role(models.Model):

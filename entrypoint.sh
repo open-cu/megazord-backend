@@ -4,4 +4,4 @@
 python src/manage.py migrate
 
 # Запускаем Django сервер
-python src/manage.py runserver 0.0.0.0:8000
+uvicorn --app-dir src megazord.asgi:application --host 0.0.0.0 --port 8000

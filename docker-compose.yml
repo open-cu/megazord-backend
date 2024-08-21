@@ -21,10 +21,13 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-megazord}
       - DATABASE_HOST=${DATABASE_HOST:-db}
       - DATABASE_PORT=${DATABASE_PORT:-5432}
-      - FRONTEND_URL=${FRONTEND_URL}
-      - CONFIRMATION_CODE_TTL=${CONFIRMATION_CODE_TTL}
+      - FRONTEND_URL=${FRONTEND_URL:-http:/localhost:3000}
+      - CONFIRMATION_CODE_TTL=${CONFIRMATION_CODE_TTL:-2}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-amqp://celery}
+
     depends_on:
       - db
+      - celery
     networks:
       - megazord-network
 
@@ -48,6 +51,11 @@ services:
       - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
+    networks:
+      - megazord-network
+
+  celery:
+    image: celery:4.0
     networks:
       - megazord-network
 

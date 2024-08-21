@@ -3,9 +3,9 @@ import uuid
 from smtplib import SMTPException
 from typing import Annotated, Any
 
+from django.db.models import Q
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
-from mail_templated import send_mail
+from django.shortcuts import aget_object_or_404
 from ninja import File, Query, Router, UploadedFile
 
 from accounts.models import Account, Email
@@ -14,7 +14,8 @@ from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema
 from megazord.settings import FRONTEND_URL
 from teams.models import Team
-from teams.schemas import TeamById
+from teams.schemas import TeamSchema
+from utils.mail import send_email_task
 from utils.telegram import send_telegram_message
 
 from .models import Hackathon, Role
@@ -39,7 +40,7 @@ my_hackathon_router = Router()
     path="/",
     response={201: HackathonSchema, 401: ErrorSchema, 400: ErrorSchema},
 )
-def create_hackathon(
+async def create_hackathon(
     request: APIRequest,
     body: HackathonIn,
     image_cover: UploadedFile = File(),
@@ -63,10 +64,10 @@ def create_hackathon(
         max_participants=body.max_participants,
         image_cover=image_cover.read(),
     )
-    hackathon.save()
+    await hackathon.asave()
 
     for role in body.roles:
-        hackathon.roles.create(name=role)
+        await hackathon.roles.acreate(name=role)
 
     participants = set(body.participants)
     if csv_emails is not None:
@@ -75,62 +76,56 @@ def create_hackathon(
 
     for participant in participants:
         # Создание или получение объекта Email
-        email_obj, created = Email.objects.get_or_create(email=participant)
+        email_obj, created = await Email.objects.aget_or_create(email=participant)
 
         # Добавление email в хакатон
-        hackathon.emails.add(email_obj)
+        await hackathon.emails.aadd(email_obj)
 
-    return 201, hackathon
+    return 201, await hackathon.to_entity()
 
 
 @hackathon_router.post(
     path="/join", response={200: HackathonSchema, ERROR_CODES: ErrorSchema}
 )
-def join_hackathon(
+async def join_hackathon(
     request: APIRequest,
     hackathon_id: uuid.UUID,
     role_name: Annotated[str | None, Query(alias="role")] = None,
 ):
     user = request.user
-    hackathon = get_object_or_404(
+    hackathon = await aget_object_or_404(
         Hackathon, id=hackathon_id, status=Hackathon.Status.STARTED
     )
-    if not hackathon.emails.filter(email=user.email).exists():
+    if not await hackathon.emails.filter(email=user.email).aexists():
         return 403, ErrorSchema(
             detail="You have not been added to the hackathon participants"
         )
 
     if role_name is None:
-        if hackathon.roles.count() != 0:
+        if await hackathon.roles.acount() != 0:
             return 400, ErrorSchema(detail="Please, choice role")
     else:
-        role = get_object_or_404(Role, hackathon=hackathon, name=role_name)
-        role.users.add(user, through_defaults={"hackathon": hackathon})
+        role = await aget_object_or_404(Role, hackathon=hackathon, name=role_name)
+        await role.users.aadd(user, through_defaults={"hackathon": hackathon})
 
-    hackathon.participants.add(user)
-    return 200, hackathon
-
-
-@hackathon_router.get(path="/", response={401: Error, 200: list[HackathonSchema]})
-def list_hackathons(request):
-    hackathons = Hackathon.objects.all()
-    return 200, hackathons
+    await hackathon.participants.aadd(user)
+    return 200, await hackathon.to_entity()
 
 
 @hackathon_router.post(
     path="/{hackathon_id}/send_invites",
     response={200: StatusOK, ERROR_CODES: ErrorSchema},
 )
-def send_invites(
+async def send_invites(
     request: APIRequest, hackathon_id: uuid.UUID, emails_schema: EmailsSchema
 ):
-    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+    hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
 
     if request.user != hackathon.creator:
         return 403, ErrorSchema(detail="You are not creator")
 
     try:
-        send_mail(
+        send_email_task(
             template_name="hackathons/invitation_to_hackathon.html",
             context={"hackathon": hackathon},
             from_email="",
@@ -147,11 +142,11 @@ def send_invites(
     path="/{hackathon_id}/add_user",
     response={201: HackathonSchema, ERROR_CODES: Error},
 )
-def add_user_to_hackathon(
+async def add_user_to_hackathon(
     request: APIRequest, hackathon_id: uuid.UUID, email_schema: AddUserToHack
 ):
     me = request.user
-    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+    hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
 
     if hackathon.creator != me:
         return 403, {"details": "You are not creator and you can't edit this hackathon"}
@@ -161,40 +156,40 @@ def add_user_to_hackathon(
         return 400, {"details": "user is creator of the hackathon"}
     try:
         # Поиск или создание записи email
-        email_obj, created = Email.objects.get_or_create(email=email_schema.email)
+        email_obj, created = await Email.objects.aget_or_create(
+            email=email_schema.email
+        )
 
         # Добавление email в хакатон
-        hackathon.emails.add(email_obj)
-        hackathon.save()
+        await hackathon.emails.aadd(email_obj)
     except SMTPException as e:
         return 500, {"details": f"Failed to find user: {str(e)}"}
 
-    return 201, hackathon
+    return 201, await hackathon.to_entity()
 
 
 @hackathon_router.delete(
     path="/{hackathon_id}/remove_user",
     response={201: HackathonSchema, 401: Error, 404: Error, 403: Error, 400: Error},
 )
-def remove_user_from_hackathon(
+async def remove_user_from_hackathon(
     request: APIRequest, hackathon_id: uuid.UUID, email_schema: AddUserToHack
 ):
     me = request.user
-    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
-    user_to_remove = get_object_or_404(Account, email=email_schema.email)
+    hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
+    user_to_remove = await aget_object_or_404(Account, email=email_schema.email)
     if hackathon.creator == me:
         if user_to_remove != hackathon.creator:
             if user_to_remove in hackathon.participants.all():
-                hackathon.participants.remove(user_to_remove)
-                hackathon.save()
+                await hackathon.participants.aremove(user_to_remove)
 
-                send_mail(
+                send_email_task(
                     template_name="hackathons/user_kicked.html",
                     context={"hackathon": hackathon},
                     from_email="",
                     recipient_list=[user_to_remove.email],
                 )
-            return 201, hackathon
+            return 201, await hackathon.to_entity()
         else:
             return 400, {"detail": "This user is creator of hackathon"}
     else:
@@ -205,23 +200,20 @@ def remove_user_from_hackathon(
     path="/{id}",
     response={200: HackathonSchema, 401: Error, 400: Error, 403: Error, 404: Error},
 )
-def edit_hackathons(request: APIRequest, id: uuid.UUID, body: EditHackathon):
-    hackathon = get_object_or_404(Hackathon, id=id)
+async def edit_hackathons(request: APIRequest, id: uuid.UUID, body: EditHackathon):
+    hackathon = await aget_object_or_404(Hackathon, id=id)
     user = request.user
     if hackathon.creator == user:
         if body.name:
             hackathon.name = body.name
-            hackathon.save()
         if body.description:
             hackathon.description = body.description
-            hackathon.save()
         if body.min_participants:
             hackathon.min_participants = body.min_participants
-            hackathon.save()
         if body.max_participants:
             hackathon.max_participants = body.max_participants
-            hackathon.save()
-        return 200, hackathon
+        await hackathon.asave()
+        return 200, await hackathon.to_entity()
     else:
         return 403, {"detail": "You are not creator and you can't edit this hackathons"}
 
@@ -230,15 +222,15 @@ def edit_hackathons(request: APIRequest, id: uuid.UUID, body: EditHackathon):
     path="/{id}/change_photo",
     response={200: HackathonSchema, 401: Error, 400: Error, 403: Error, 404: Error},
 )
-def change_photo(
+async def change_photo(
     request: APIRequest, id: uuid.UUID, image_cover: UploadedFile = File(...)
 ):
-    hackathon = get_object_or_404(Hackathon, id=id)
+    hackathon = await aget_object_or_404(Hackathon, id=id)
     user = request.user
     if hackathon.creator == user:
-        if image_cover:
-            hackathon.image_cover.save(image_cover.name, image_cover)
-        return 200, hackathon
+        hackathon.image_cover = image_cover.read()
+        await hackathon.asave()
+        return 200, await hackathon.to_entity()
     else:
         return 403, {"detail": "You are not creator and you can't edit this hackathons"}
 
@@ -247,59 +239,46 @@ def change_photo(
     path="/{id}",
     response={200: HackathonSchema, 401: Error, 400: Error, 404: Error},
 )
-def get_specific_hackathon(request: APIRequest, id: uuid.UUID) -> tuple[int, Hackathon]:
-    hackathon = get_object_or_404(Hackathon, id=id)
-    return 200, hackathon
+async def get_specific_hackathon(
+    request: APIRequest, id: uuid.UUID
+) -> tuple[int, Hackathon]:
+    hackathon = await aget_object_or_404(Hackathon, id=id)
+    return 200, await hackathon.to_entity()
 
 
 @my_hackathon_router.get(path="/", response={401: Error, 200: list[HackathonSchema]})
-def list_myhackathons(request):
+async def list_my_hackathons(request: APIRequest):
     user = request.user
-    hackathons = Hackathon.objects.all()
-    to_return = []
-    for hack in hackathons:
-        if hack.creator == user or user in hack.participants.all():
-            to_return.append(hack)
-    return 200, to_return
+    hackathons_queryset = Hackathon.objects.filter(
+        Q(creator=user) | Q(participants=user)
+    ).prefetch_related("creator")
+    hackathons = [
+        await hackathon.to_entity() async for hackathon in hackathons_queryset
+    ]
+
+    return 200, hackathons
 
 
-@hackathon_router.get(path="/get_user_team/{id}", response={200: TeamById, 404: Error})
-def get_user_team_in_hackathon(request: APIRequest, id: uuid.UUID):
+@hackathon_router.get(
+    path="/get_user_team/{id}", response={200: TeamSchema, ERROR_CODES: ErrorSchema}
+)
+async def get_user_team_in_hackathon(request: APIRequest, id: uuid.UUID):
     user = request.user
-    user_id = user.id
-    hackathon = get_object_or_404(Hackathon, id=(id))
-    teams = Team.objects.filter(hackathon=hackathon).all()
-    if teams:
-        for t in teams:
-            for member in t.team_members.all():
-                if (user_id) == (member.id):
-                    return 200, {
-                        "id": t.id,
-                        "hackathon": t.hackathon.id,
-                        "name": t.name,
-                        "creator": t.creator.id,
-                        "team_members": [
-                            {
-                                "id": member.id,
-                                "email": member.email,
-                                "name": member.username,
-                            }
-                            for member in t.team_members.all()
-                        ],
-                    }
-    else:
-        return 404, {"details": "Not found"}
+    hackathon = await aget_object_or_404(Hackathon, id=int(id))
+    teams_queryset = Team.objects.filter(hackathon=hackathon).filter(team_members=user)
+    teams = [await team.to_entity() async for team in teams_queryset]
+    return teams
 
 
 @hackathon_router.post(
     path="/{hackathon_id}/upload_emails",
-    response={200: StatusOK, 400: Error, 404: Error, 403: Error},
+    response={200: StatusOK, ERROR_CODES: ErrorSchema},
 )
-def upload_emails_to_hackathon(
+async def upload_emails_to_hackathon(
     request: APIRequest, hackathon_id: uuid.UUID, csv_file: UploadedFile = File(...)
 ):
     user = request.user
-    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+    hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
 
     # Проверка, является ли пользователь создателем хакатона
     if hackathon.creator != user:
@@ -311,12 +290,12 @@ def upload_emails_to_hackathon(
         emails = get_emails_from_csv(file=csv_file)
         for email in emails:
             # Создание или получение объекта Email
-            email_obj, created = Email.objects.get_or_create(email=email)
+            email_obj, created = await Email.objects.aget_or_create(email=email)
 
             # Добавление email в хакатон
-            hackathon.emails.add(email_obj)
+            await hackathon.emails.aadd(email_obj)
 
-        hackathon.save()
+        await hackathon.asave()
 
     except Exception as e:
         logger.critical(f"Failed to process CSV file: {str(e)}")
@@ -329,15 +308,16 @@ def upload_emails_to_hackathon(
     path="/{hackathon_id}/export",
     response={200: Any, 404: Error, 403: Error},
 )
-def export_participants_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
+async def export_participants_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
     user = request.user
-    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+    hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
+    user_in_participants = await hackathon.participants.filter(user=user).aexists()
 
     # Проверка, является ли пользователь создателем хакатона или его участником
-    if hackathon.creator != user and user not in hackathon.participants.all():
+    if hackathon.creator != user and not user_in_participants:
         return 403, {"details": "You do not have permission to access this hackathon"}
 
-    csv_output = make_csv(hackathon)
+    csv_output = await make_csv(hackathon)
     # Создание HTTP-ответа с заголовками для загрузки файла
     response = HttpResponse(csv_output, content_type="text/csv")
     response["Content-Disposition"] = (
@@ -350,18 +330,18 @@ def export_participants_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
     path="/{hackathon_id}/start",
     response={200: StatusOK, ERROR_CODES: ErrorSchema},
 )
-def start_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
-    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+async def start_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
+    hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
     if hackathon.creator != request.user:
         return 403, ErrorSchema(
             detail="You are not the creator or cannot edit this hackathon"
         )
 
     hackathon.status = Hackathon.Status.STARTED
-    hackathon.save()
+    await hackathon.asave()
 
     try:
-        send_mail(
+        send_email_task(
             template_name="hackathons/invitation_to_hackathon.html",
             context={"hackathon": hackathon, "frontend_url": FRONTEND_URL},
             from_email="",
@@ -371,21 +351,13 @@ def start_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
         logger.critical(exc)
         return 500, ErrorSchema(detail="Failed to send email")
 
-    try:
-        for email_obj in hackathon.emails.all():
-            try:
-                account = Account.objects.get(email=email_obj.email)
-                if account.telegram_id:
-                    telegram_message = (
-                        f"🎉 Приглашение в хакатон {hackathon.name}!\n"
-                        f"Для принятия участия, перейдите по ссылке: http://localhost:3000/join-hackathon?hackathon_id={hackathon.id}"
-                    )
-                    send_telegram_message(account.telegram_id, telegram_message)
-            except Account.DoesNotExist:
-                logger.warning(f"No account found for email: {email_obj.email}")
-    except Exception as e:
-        logger.critical(f"Failed to send telegram message: {e}")
-        return 500, ErrorSchema(detail="Failed to send telegram messages")
+    async for user in Account.objects.filter(email__in=hackathon.emails.all()):
+        if user.telegram_id:
+            telegram_message = (
+                f"🎉 Приглашение в хакатон {hackathon.name}!\n"
+                f"Для принятия участия, перейдите по ссылке: http://localhost:3000/join-hackathon?hackathon_id={hackathon.id}"
+            )
+            send_telegram_message(user.telegram_id, telegram_message)
 
     return 200, StatusOK()
 
@@ -394,31 +366,23 @@ def start_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
     path="/{hackathon_id}/end",
     response={200: StatusOK, ERROR_CODES: ErrorSchema},
 )
-def end_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
-    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
-
+async def end_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
+    hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
     if hackathon.creator != request.user:
         return 403, ErrorSchema(
             detail="You are not the creator or cannot edit this hackathon"
         )
 
     hackathon.status = Hackathon.Status.ENDED
-    hackathon.save()
+    await hackathon.asave()
 
-    try:
-        for email_obj in hackathon.emails.all():
-            try:
-                account = Account.objects.get(email=email_obj.email)
-                if account.telegram_id:
-                    message_text = (
-                        f"🏁 Хакатон {hackathon.name} завершён!\n"
-                        f"Спасибо за участие! До встречи на следующих событиях."
-                    )
-                    send_telegram_message(account.telegram_id, message_text)
-            except Account.DoesNotExist:
-                logger.warning(f"No account found for email: {email_obj.email}")
-    except Exception as e:
-        logger.error(f"Failed to send telegram message: {e}")
-        return 500, ErrorSchema(detail="Failed to send telegram messages")
+    async for user in hackathon.participants.all():
+        if user.telegram_id:
+            message_text = (
+                f"🏁 Хакатон {hackathon.name} завершён!\n"
+                f"Спасибо за участие! До встречи на следующих событиях."
+            )
+            send_telegram_message(user.telegram_id, message_text)
+
 
     return 200, StatusOK()

@@ -2,16 +2,16 @@ import json
 import re
 import uuid
 
-import requests
+import httpx
+from aiogithubapi import GitHubAPI
 from bs4 import BeautifulSoup
 from django.http import Http404
-from django.shortcuts import get_object_or_404
+from django.shortcuts import aget_object_or_404
 from faker import Faker
 from flags.decorators import flag_check
 from gigachat import GigaChat
 from gigachat.exceptions import GigaChatException
 from gigachat.models import Chat, Messages, MessagesRole
-from github import Github, GithubException
 from ninja import File, Router, UploadedFile
 from pypdf import PdfReader
 
@@ -20,6 +20,7 @@ from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema
 
+from .entities import ResumeEntity
 from .models import Resume
 from .schemas import (
     LinkSchema,
@@ -35,37 +36,39 @@ router = Router()
 @router.post(
     path="/create/custom", response={201: ResumeSchema, ERROR_CODES: ErrorSchema}
 )
-def create_custom_resume(
+async def create_custom_resume(
     request: APIRequest, create_schema: ResumeCreateSchema
-) -> tuple[int, Resume]:
-    hackathon = get_object_or_404(
+) -> tuple[int, ResumeEntity]:
+    hackathon = await aget_object_or_404(
         Hackathon, id=create_schema.hackathon_id, status=Hackathon.Status.STARTED
     )
-    resume = Resume.objects.create(
+    resume = await Resume.objects.acreate(
         hackathon=hackathon,
         user=request.user,
         **create_schema.dict(exclude=["hackathon_id", "tech", "soft"]),
     )
     for soft in create_schema.soft:
-        resume.soft_skills.create(tag_text=soft)
+        await resume.soft_skills.acreate(tag_text=soft)
     for tech in create_schema.tech:
-        resume.hard_skills.create(tag_text=tech)
+        await resume.hard_skills.acreate(tag_text=tech)
 
-    return 201, resume
+    return 201, await resume.to_entity()
 
 
 @router.get(path="/get", response={200: ResumeSchema, ERROR_CODES: ErrorSchema})
-def get_resume(
+async def get_resume(
     request: APIRequest, hackathon_id: uuid.UUID, user_id: uuid.UUID
-) -> Resume:
-    resume = get_object_or_404(Resume, user=user_id, hackathon_id=hackathon_id)
+) -> ResumeEntity:
+    resume = await aget_object_or_404(Resume, user=user_id, hackathon_id=hackathon_id)
 
-    return resume
+    return await resume.to_entity()
 
 
 @router.patch(path="/edit", response={200: ResumeSchema, ERROR_CODES: ErrorSchema})
-def edit_resume(request: APIRequest, update_schema: ResumeUpdateSchema) -> Resume:
-    resume = get_object_or_404(
+async def edit_resume(
+    request: APIRequest, update_schema: ResumeUpdateSchema
+) -> ResumeEntity:
+    resume = await aget_object_or_404(
         Resume,
         user=request.user,
         hackathon_id=update_schema.hackathon_id,
@@ -76,49 +79,46 @@ def edit_resume(request: APIRequest, update_schema: ResumeUpdateSchema) -> Resum
     )
     for attr, value in updated_fields.items():
         setattr(resume, attr, value)
-    resume.save()
+    await resume.asave()
 
-    resume.soft_skills.all().delete()
-    resume.hard_skills.all().delete()
+    await resume.soft_skills.all().adelete()
+    await resume.hard_skills.all().adelete()
     for soft in update_schema.soft:
-        resume.soft_skills.create(tag_text=soft)
+        await resume.soft_skills.acreate(tag_text=soft)
     for tech in update_schema.tech:
-        resume.hard_skills.create(tag_text=tech)
+        await resume.hard_skills.acreate(tag_text=tech)
 
-    return resume
+    return await resume.to_entity()
 
 
 @router.post(
     "/suggest-resume-github",
     response={200: ResumeSuggestionSchema, ERROR_CODES: ErrorSchema},
 )
-def suggest_resume_github(request: APIRequest, link_schema: LinkSchema):
+async def suggest_resume_github(request: APIRequest, link_schema: LinkSchema):
     if match := re.search(pattern=r"/github\.com/([^/]+)", string=link_schema.link):
         username = match.group(1)
     else:
         username = link_schema.link
 
-    try:
-        gh_client = Github()
-        gh_user = gh_client.get_user(username)
-        repos = gh_user.get_repos()
-    except GithubException:
-        raise Http404
+    async with GitHubAPI() as gh_api:
+        gh_user = await gh_api.users.get(username=username)
+        repos = await gh_api.users.repos(username=username)
 
-    languages = {repo.language for repo in repos if repo.language}
+    languages = {repo.language for repo in repos.data if repo.language}
 
-    return ResumeSuggestionSchema(bio=gh_user.bio, hards=list(languages))
+    return ResumeSuggestionSchema(bio=gh_user.data.bio, hards=list(languages))
 
 
 @router.post(
     path="/suggest-resume-hh",
     response={200: ResumeSuggestionSchema, ERROR_CODES: ErrorSchema},
 )
-def suggest_resume_hh(
+async def suggest_resume_hh(
     request: APIRequest, link_schema: LinkSchema
 ) -> ResumeSuggestionSchema:
     headers = {"user-agent": Faker().user_agent()}
-    response = requests.get(url=link_schema.link, headers=headers)
+    response = httpx.get(url=link_schema.link, headers=headers)
     if response.status_code != 200:
         raise Http404
 
@@ -136,7 +136,7 @@ def suggest_resume_hh(
     include_in_schema=False,
 )
 @flag_check("SUGGEST_RESUME_PDF", True)
-def suggest_resume_pdf(request: APIRequest, pdf: UploadedFile = File(...)):
+async def suggest_resume_pdf(request: APIRequest, pdf: UploadedFile = File(...)):
     try:
         text = ""
         reader = PdfReader(pdf)
@@ -155,8 +155,9 @@ def suggest_resume_pdf(request: APIRequest, pdf: UploadedFile = File(...)):
             ],
             max_tokens=512,
         )
-        with GigaChat(credentials="GIGA_TOKEN", verify_ssl_certs=False) as giga:
-            data = giga.chat(payload).choices[0].message.content
+        async with GigaChat(credentials="GIGA_TOKEN", verify_ssl_certs=False) as giga:
+            data = await giga.achat(payload)
+            data = data.choices[0].message.content
             data = json.loads(data)
             return 200, data
     except GigaChatException:

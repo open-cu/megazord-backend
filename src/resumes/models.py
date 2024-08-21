@@ -4,6 +4,7 @@ from django.db import models
 
 from accounts.models import Account
 from hackathons.models import Hackathon
+from resumes.entities import ResumeEntity
 
 
 class Resume(models.Model):
@@ -19,6 +20,26 @@ class Resume(models.Model):
 
     class Meta:
         unique_together = (("user", "hackathon"),)
+
+    async def to_entity(self) -> ResumeEntity:
+        try:
+            role = await self.hackathon.roles.aget(users=self.user).name
+        except self.hackathon.roles.ObjectDoesNotExist:
+            role = None
+
+        return ResumeEntity(
+            id=self.id,
+            user=await self.user.to_entity(),
+            hackathon=await self.hackathon.to_entity(),
+            role=role,
+            bio=self.bio,
+            personal_website=self.personal_website,
+            github=self.github,
+            hh=self.hh,
+            telegram=self.telegram,
+            hard_skills=[skill.tag_text async for skill in self.hard_skills.all()],
+            soft_skills=[skill.tag_text async for skill in self.soft_skills.all()],
+        )
 
 
 class HardSkillTag(models.Model):

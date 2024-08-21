@@ -6,7 +6,6 @@ from ninja.errors import ValidationError
 from accounts.api import router as accounts_router
 from hackathons.api import hackathon_router, my_hackathon_router
 from profiles.api import router as profiles_router
-from projects.api import router as projects_router
 from resumes.api import router as resumes_router
 from teams.api import team_router
 
@@ -29,9 +28,6 @@ api.add_router(
     auth=AuthBearer(),
 )
 api.add_router(prefix="/teams", router=team_router, tags=["Teams"], auth=AuthBearer())
-api.add_router(
-    prefix="/projects", router=projects_router, tags=["Projects"], auth=AuthBearer()
-)
 api.add_router(
     prefix="/resumes", router=resumes_router, tags=["Resumes"], auth=AuthBearer()
 )

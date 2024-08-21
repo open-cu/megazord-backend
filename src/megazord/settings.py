@@ -51,12 +51,10 @@ INSTALLED_APPS = [
     "mail_templated",
     "corsheaders",
     "hackathons",
-    "projects",
     "resumes",
     "teams",
     "accounts",
     "vacancies",
-    "mini_interviews",
 ]
 
 AUTH_USER_MODEL = "accounts.Account"
@@ -91,6 +89,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "megazord.wsgi.application"
+
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
@@ -164,3 +163,5 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CONFIRMATION_CODE_TTL = env.int("CONFIRMATION_CODE_TTL", default=2)
 
 TELEGRAM_BOT_TOKEN = env.str("TELEGRAM_BOT_TOKEN", default="228")
+
+CELERY_BROKER_URL = env.str("CELERY_BROKER_URL", default="amqp://localhost")
