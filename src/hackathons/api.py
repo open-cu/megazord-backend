@@ -15,6 +15,7 @@ from megazord.schemas import ErrorSchema
 from megazord.settings import FRONTEND_URL
 from teams.models import Team
 from teams.schemas import TeamById
+from utils.telegram import send_telegram_message
 
 from .models import Hackathon, Role
 from .schemas import (
@@ -370,21 +371,21 @@ def start_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
         logger.critical(exc)
         return 500, ErrorSchema(detail="Failed to send email")
 
-    # try:
-    #     for email_obj in hackathon.emails.all():
-    #         try:
-    #             account = Account.objects.get(email=email_obj.email)
-    #             if account.telegram_id:
-    #                 telegram_message = (
-    #                     f"🎉 Приглашение в хакатон {hackathon.name}!\n"
-    #                     f"Для принятия участия, перейдите по ссылке: http://localhost:3000/join-hackathon?hackathon_id={hackathon.id}"
-    #                 )
-    #                 send_telegram_invitation(account.telegram_id, telegram_message)
-    #         except Account.DoesNotExist:
-    #             logger.warning(f"No account found for email: {email_obj.email}")
-    # except Exception as e:
-    #     logger.critical(f"Failed to send telegram message: {e}")
-    #     return 500, ErrorSchema(detail="Failed to send telegram messages")
+    try:
+        for email_obj in hackathon.emails.all():
+            try:
+                account = Account.objects.get(email=email_obj.email)
+                if account.telegram_id:
+                    telegram_message = (
+                        f"🎉 Приглашение в хакатон {hackathon.name}!\n"
+                        f"Для принятия участия, перейдите по ссылке: http://localhost:3000/join-hackathon?hackathon_id={hackathon.id}"
+                    )
+                    send_telegram_message(account.telegram_id, telegram_message)
+            except Account.DoesNotExist:
+                logger.warning(f"No account found for email: {email_obj.email}")
+    except Exception as e:
+        logger.critical(f"Failed to send telegram message: {e}")
+        return 500, ErrorSchema(detail="Failed to send telegram messages")
 
     return 200, StatusOK()
 
@@ -395,6 +396,7 @@ def start_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
 )
 def end_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
     hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+
     if hackathon.creator != request.user:
         return 403, ErrorSchema(
             detail="You are not the creator or cannot edit this hackathon"
@@ -402,5 +404,21 @@ def end_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
 
     hackathon.status = Hackathon.Status.ENDED
     hackathon.save()
+
+    try:
+        for email_obj in hackathon.emails.all():
+            try:
+                account = Account.objects.get(email=email_obj.email)
+                if account.telegram_id:
+                    message_text = (
+                        f"🏁 Хакатон {hackathon.name} завершён!\n"
+                        f"Спасибо за участие! До встречи на следующих событиях."
+                    )
+                    send_telegram_message(account.telegram_id, message_text)
+            except Account.DoesNotExist:
+                logger.warning(f"No account found for email: {email_obj.email}")
+    except Exception as e:
+        logger.error(f"Failed to send telegram message: {e}")
+        return 500, ErrorSchema(detail="Failed to send telegram messages")
 
     return 200, StatusOK()

@@ -54,7 +54,7 @@ def get_profile(request: APIRequest, user_id: uuid.UUID) -> Account:
     response={200: dict, 404: ErrorSchema},
 )
 def link_telegram(request: APIRequest, user_id: uuid.UUID, telegram_id: str):
-    user = get_object_or_404(Account, uuid=user_id)
+    user = get_object_or_404(Account, id=user_id)
 
     user.telegram_id = telegram_id
     user.save()
