@@ -1,24 +1,20 @@
-from ninja import ModelSchema
+import uuid
 
-from accounts.models import Account
-
-
-class ProfileSchema(ModelSchema):
-    class Config:
-        model = Account
-        model_fields = [
-            "id",
-            "username",
-            "email",
-            "is_organizator",
-            "age",
-            "city",
-            "work_experience",
-        ]
+from ninja import Field, Schema
 
 
-class ProfileEditSchema(ModelSchema):
-    class Config:
-        model = Account
-        model_fields = ["username", "age", "city", "work_experience"]
-        model_fields_optional = ["username", "age", "city", "work_experience"]
+class ProfileSchema(Schema):
+    id: uuid.UUID
+    username: str
+    email: str
+    is_organizator: bool
+    age: int | None
+    city: str | None
+    work_experience: int | None
+
+
+class ProfileEditSchema(Schema):
+    username: str | None = Field(min_length=1, max_length=30, default=None)
+    age: int | None = None
+    city: str | None = None
+    work_experience: int | None = None

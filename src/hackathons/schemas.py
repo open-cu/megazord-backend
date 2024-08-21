@@ -1,9 +1,10 @@
 import base64
+import uuid
 from enum import StrEnum
 from typing import Any
 
 from django.core.exceptions import ObjectDoesNotExist
-from ninja import ModelSchema, Schema
+from ninja import Schema
 from pydantic import EmailStr
 
 from hackathons.models import Hackathon
@@ -17,23 +18,18 @@ class HackathonStatus(StrEnum):
     ENDED = "ENDED"
 
 
-class HackathonSchema(ModelSchema):
+class HackathonSchema(Schema):
+    id: uuid.UUID
+    creator_id: uuid.UUID
+    name: str
+    status: HackathonStatus
+    image_cover: str
+    description: str
+    min_participants: int | None
+    max_participants: int | None
     participants: list[ProfileSchema]
     roles: list[str]
     role: str | None
-
-    class Meta:
-        model = Hackathon
-        fields = [
-            "id",
-            "creator",
-            "name",
-            "status",
-            "image_cover",
-            "description",
-            "min_participants",
-            "max_participants",
-        ]
 
     @staticmethod
     def resolve_roles(obj: Hackathon) -> list[str]:
