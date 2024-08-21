@@ -70,6 +70,6 @@ def link_telegram(request: APIRequest, user_id: uuid.UUID, telegram_id: str):
 def generate_telegram_link(request: APIRequest) -> dict:
     user = request.user
 
-    telegram_link = f"https://t.me/FindYourMate_bot?start={(user.uuid)}"
+    telegram_link = f"https://t.me/FindYourMate_bot?start={(user.id)}"
 
     return {"telegram_link": telegram_link}
