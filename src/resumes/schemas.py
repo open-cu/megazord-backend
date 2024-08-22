@@ -1,7 +1,7 @@
 import uuid
 
 from ninja import ModelSchema, Schema
-from pydantic import UUID4
+from pydantic import Field
 
 from resumes.models import Resume
 
@@ -22,8 +22,9 @@ class ResumeUpdateSchema(ResumeCreateSchema):
 
 
 class ResumeSchema(Schema):
-    id: UUID4
-    hackathon_id: UUID4
+    id: uuid.UUID
+    hackathon_id: uuid.UUID
+    user_id: uuid.UUID
     bio: str
     personal_website: str | None
     github: str | None
@@ -31,8 +32,8 @@ class ResumeSchema(Schema):
     telegram: str | None
 
     role: str | None
-    tech: list[str]
-    soft: list[str]
+    tech: list[str] = Field(alias="hard_skills")
+    soft: list[str] = Field(alias="soft_skills")
 
 
 class LinkSchema(Schema):
