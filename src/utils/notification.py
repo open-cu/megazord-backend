@@ -11,6 +11,7 @@ from httpx import AsyncClient
 from mail_templated import send_mail as send_mail_sync
 
 from accounts.models import Account, Email
+from hackathons.models import NotificationStatus
 from megazord.settings import FRONTEND_URL, TELEGRAM_BOT_TOKEN
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,8 @@ async def send_notification_by_email(
         emails = [emails]
 
     for email in emails:
+        email_sent = True
+        telegram_sent = True
         try:
             user = await Account.objects.aget(email=email)
             context["current_user"] = user
@@ -76,7 +79,7 @@ async def send_notification_by_email(
             user = None
 
         if mail_template is not None:
-            await send_email(
+            email_sent = await send_email(
                 template_name=mail_template,
                 context=context,
                 recipient_list=[email.email],
@@ -85,12 +88,17 @@ async def send_notification_by_email(
         if (
             telegram_template is not None
             and user is not None
-            and user.email is not None
+            and user.telegram_id is not None
         ):
-            await send_telegram_message(
+            telegram_sent = await send_telegram_message(
                 template_name=telegram_template,
                 context=context,
                 chat_id=user.telegram_id,
+            )
+
+        if not email_sent or not telegram_sent:
+            await sync_to_async(NotificationStatus.objects.create)(
+                email=email.email, email_sent=email_sent, telegram_sent=telegram_sent
             )
 
 
@@ -106,24 +114,30 @@ async def send_notification_by_user(
         users = [users]
 
     for user in users:
+        email_sent = True
+        telegram_sent = True
         context["current_user"] = user
 
         if mail_template is not None:
-            await send_email(
+            email_sent = await send_email(
                 template_name=mail_template,
                 context=context,
                 recipient_list=[user.email],
             )
 
         if telegram_template is not None and user.telegram_id is not None:
-            await send_telegram_message(
+            telegram_sent = await send_telegram_message(
                 template_name=telegram_template,
                 context=context,
                 chat_id=user.telegram_id,
             )
 
+        if not email_sent or not telegram_sent:
+            await sync_to_async(NotificationStatus.objects.create)(
+                email=user.email, email_sent=email_sent, telegram_sent=telegram_sent
+            )
 
-# @shared_task
+
 async def send_email(
     template_name: str,
     context: dict[str, Any],
@@ -133,19 +147,24 @@ async def send_email(
     auth_user: str | None = None,
     auth_password: str | None = None,
     connection: BaseEmailBackend | None = None,
-) -> None:
+) -> bool:
     logger.info(f"Sending email to `{recipient_list}`")
 
-    await sync_to_async(send_mail_sync)(
-        template_name=template_name,
-        context=context,
-        from_email=from_email,
-        recipient_list=recipient_list,
-        fail_silently=fail_silently,
-        auth_user=auth_user,
-        auth_password=auth_password,
-        connection=connection,
-    )
+    try:
+        await sync_to_async(send_mail_sync)(
+            template_name=template_name,
+            context=context,
+            from_email=from_email,
+            recipient_list=recipient_list,
+            fail_silently=fail_silently,
+            auth_user=auth_user,
+            auth_password=auth_password,
+            connection=connection,
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Error sending email to `{recipient_list}`: {e}")
+        return False
 
 
 async def send_telegram_message(
