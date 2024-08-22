@@ -44,5 +44,4 @@ django-flags==5.0.13
 django-mail-templated==2.6.5
 ratelimit==2.2.1
 aiogithubapi==24.6.0
-celery==5.4.0
 uvicorn==0.30.6

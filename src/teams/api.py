@@ -132,7 +132,7 @@ async def add_user_to_team(
         telegram_template="teams/telegram/invitation_to_team.html",
     )
 
-    return 201, team
+    return 201, await team.to_entity()
 
 
 @team_router.delete(
@@ -164,7 +164,7 @@ async def remove_user_from_team(
         telegram_template="teams/telegram/user_kicked.html",
     )
 
-    return 200, team
+    return 200, await team.to_entity()
 
 
 @team_router.post(

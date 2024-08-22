@@ -41,10 +41,6 @@ class EditHackathon(Schema):
     max_participants: int | None = None
 
 
-class Error(Schema):
-    details: str
-
-
 class AddUserToHack(Schema):
     email: EmailStr
 
