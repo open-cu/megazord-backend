@@ -48,7 +48,6 @@ class VacancySchema(Schema):
     id: uuid.UUID
     name: str
     keywords: list[str]
-    team: TeamSchema
 
 
 class VacancySuggestionForUserSchema(Schema):
