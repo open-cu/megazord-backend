@@ -77,7 +77,7 @@ async def send_notification_by_email(
         if (
             telegram_template is not None
             and user is not None
-            and user.temail is not None
+            and user.email is not None
         ):
             await send_telegram_message(
                 template_name=telegram_template,
