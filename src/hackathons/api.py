@@ -147,7 +147,7 @@ async def add_user_to_hackathon(
             detail="You are not creator and you can not edit this hackathon"
         )
 
-    if await hackathon.emails.filter(user__email=email_schema.email).aexists():
+    if await hackathon.emails.filter(email=email_schema.email).aexists():
         return 400, ErrorSchema(detail="User already in hackathon")
 
     email_obj, _ = await Email.objects.aget_or_create(email=email_schema.email)
