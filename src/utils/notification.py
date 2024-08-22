@@ -144,7 +144,7 @@ async def send_telegram_message(
     message_text = render_to_string(template_name=template_name, context=context)
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id, "text": message_text}
+    payload = {"chat_id": chat_id, "text": message_text, "parse_mode": "HTML"}
 
     async with AsyncClient() as client:
         response = await client.post(url=url, json=payload)
