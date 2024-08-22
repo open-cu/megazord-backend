@@ -26,8 +26,8 @@ class Resume(models.Model):
 
         return ResumeEntity(
             id=self.id,
-            user=await self.user.to_entity(),
-            hackathon=await self.hackathon.to_entity(),
+            user_id=str(self.user_id),
+            hackathon_id=str(self.hackathon_id),
             role=role.name,
             bio=self.bio,
             personal_website=self.personal_website,
