@@ -17,7 +17,7 @@ class AccountEntity:
     is_active: bool
     is_staff: bool
     is_superuser: bool
-    telegram_id: str | None
+    telegram_id: int | None
 
 
 @dataclass

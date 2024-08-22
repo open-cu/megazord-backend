@@ -48,7 +48,7 @@ class Migration(migrations.Migration):
                 ("is_active", models.BooleanField(default=True)),
                 ("is_staff", models.BooleanField(default=False)),
                 ("is_superuser", models.BooleanField(default=False)),
-                ("telegram_id", models.CharField(blank=True, max_length=50, null=True)),
+                ("telegram_id", models.IntegerField(blank=True, null=True)),
             ],
             options={
                 "abstract": False,

@@ -12,11 +12,10 @@ from accounts.models import Account, Email
 from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema
-from megazord.settings import FRONTEND_URL
 from teams.models import Team
 from teams.schemas import TeamSchema
 from utils.mail import send_email_task
-from utils.telegram import send_telegram_message
+from utils.notification import send_notification
 
 from .models import Hackathon, Role
 from .schemas import (
@@ -124,16 +123,12 @@ async def send_invites(
     if request.user != hackathon.creator:
         return 403, ErrorSchema(detail="You are not creator")
 
-    try:
-        send_email_task(
-            template_name="hackathons/invitation_to_hackathon.html",
-            context={"hackathon": hackathon},
-            from_email="",
-            recipient_list=emails_schema.emails,
-        )
-    except SMTPException as exc:
-        logger.critical(exc)
-        return 500, ErrorSchema(detail="Failed to send invites")
+    await send_notification(
+        emails=hackathon.emails.filter(email__in=emails_schema.emails),
+        context={"hackathon": hackathon},
+        mail_template="hackathons/mail/invitation_to_hackathon.html",
+        telegram_template="hackathons/telegram/invitation_to_hackathon.html",
+    )
 
     return 200, StatusOK()
 
@@ -184,7 +179,7 @@ async def remove_user_from_hackathon(
                 await hackathon.participants.aremove(user_to_remove)
 
                 send_email_task(
-                    template_name="hackathons/user_kicked.html",
+                    template_name="hackathons/mail/user_kicked.html",
                     context={"hackathon": hackathon},
                     from_email="",
                     recipient_list=[user_to_remove.email],
@@ -340,24 +335,12 @@ async def start_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
     hackathon.status = Hackathon.Status.STARTED
     await hackathon.asave()
 
-    try:
-        send_email_task(
-            template_name="hackathons/invitation_to_hackathon.html",
-            context={"hackathon": hackathon, "frontend_url": FRONTEND_URL},
-            from_email="",
-            recipient_list=[email.email for email in hackathon.emails.all()],
-        )
-    except SMTPException as exc:
-        logger.critical(exc)
-        return 500, ErrorSchema(detail="Failed to send email")
-
-    async for user in Account.objects.filter(email__in=hackathon.emails.all()):
-        if user.telegram_id:
-            telegram_message = (
-                f"🎉 Приглашение в хакатон {hackathon.name}!\n"
-                f"Для принятия участия, перейдите по ссылке: http://localhost:3000/join-hackathon?hackathon_id={hackathon.id}"
-            )
-            send_telegram_message(user.telegram_id, telegram_message)
+    await send_notification(
+        emails=hackathon.emails,
+        context={"hackathon": hackathon},
+        mail_template="hackathons/mail/invitation_to_hackathon.html",
+        telegram_template="hackathons/telegram/invitation_to_hackathon.html",
+    )
 
     return 200, StatusOK()
 
@@ -376,13 +359,11 @@ async def end_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
     hackathon.status = Hackathon.Status.ENDED
     await hackathon.asave()
 
-    async for user in hackathon.participants.all():
-        if user.telegram_id:
-            message_text = (
-                f"🏁 Хакатон {hackathon.name} завершён!\n"
-                f"Спасибо за участие! До встречи на следующих событиях."
-            )
-            send_telegram_message(user.telegram_id, message_text)
-
+    await send_notification(
+        users=hackathon.participants,
+        context={"hackathon": hackathon},
+        mail_template="hackathons/telegram/hackathon_ended.html",
+        telegram_template="hackathons/telegram/hackathon_ended.html",
+    )
 
     return 200, StatusOK()

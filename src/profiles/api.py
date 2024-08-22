@@ -56,7 +56,7 @@ async def get_profile(request: APIRequest, user_id: uuid.UUID) -> AccountEntity:
     summary="Link Telegram ID",
     response={200: dict, 404: ErrorSchema},
 )
-async def link_telegram(request: APIRequest, user_id: uuid.UUID, telegram_id: str):
+async def link_telegram(request: APIRequest, user_id: uuid.UUID, telegram_id: int):
     user = await aget_object_or_404(Account, id=user_id)
 
     user.telegram_id = telegram_id

@@ -6,7 +6,7 @@ from django.db.models import Count
 from django.shortcuts import aget_object_or_404
 from ninja import Router
 
-from accounts.models import Account
+from accounts.models import Email
 from hackathons.models import Hackathon
 from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
@@ -14,10 +14,10 @@ from megazord.schemas import ErrorSchema, StatusSchema
 from megazord.settings import FRONTEND_URL, SECRET_KEY
 from profiles.schemas import ProfileSchema
 from resumes.models import Resume
-from utils.mail import send_email_task
-from utils.telegram import send_telegram_message
+from utils.notification import send_notification
 from vacancies.entities import VacancyEntity
 from vacancies.models import Apply, Keyword, Vacancy
+
 from .entities import TeamEntity
 from .models import Team, Token
 from .schemas import (
@@ -37,7 +37,7 @@ team_router = Router()
 
 @team_router.post(path="/create", response={201: TeamSchema, ERROR_CODES: ErrorSchema})
 async def create_team(
-        request: APIRequest, hackathon_id: uuid.UUID, create_schema: TeamCreateSchema
+    request: APIRequest, hackathon_id: uuid.UUID, create_schema: TeamCreateSchema
 ) -> tuple[int, TeamEntity]:
     user = request.user
     hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
@@ -55,7 +55,7 @@ async def create_team(
 
 
 @team_router.post(
-    "/accept_application", response={200: StatusSchema, ERROR_CODES: ErrorSchema}
+    path="/accept_application", response={200: StatusSchema, ERROR_CODES: ErrorSchema}
 )
 async def accept_application(request: APIRequest, app_id: uuid.UUID):
     application = await aget_object_or_404(Apply, id=app_id)
@@ -77,7 +77,7 @@ async def accept_application(request: APIRequest, app_id: uuid.UUID):
 
 
 @team_router.post(
-    "/decline_application", response={200: StatusSchema, ERROR_CODES: ErrorSchema}
+    path="/decline_application", response={200: StatusSchema, ERROR_CODES: ErrorSchema}
 )
 async def decline_application(request: APIRequest, app_id: uuid.UUID):
     application = await aget_object_or_404(Apply, id=app_id)
@@ -91,7 +91,7 @@ async def decline_application(request: APIRequest, app_id: uuid.UUID):
     response={201: TeamSchema, ERROR_CODES: ErrorSchema},
 )
 async def add_user_to_team(
-        request: APIRequest, team_id: uuid.UUID, email_schema: EmailSchema
+    request: APIRequest, team_id: uuid.UUID, email_schema: EmailSchema
 ):
     user = request.user
 
@@ -101,10 +101,12 @@ async def add_user_to_team(
             detail="You are not creator and you can not edit this hackathon"
         )
 
-    if email_schema.email == user.email:
+    email = await aget_object_or_404(Email, email=email_schema.email)
+
+    if email.email == user.email:
         return 400, ErrorSchema(detail="You can not add self")
 
-    if await team.team_members.filter(user__email=email_schema.email).aexists():
+    if await team.team_members.filter(user__email=email).aexists():
         return 400, ErrorSchema(detail="User already in team")
 
     encoded_jwt = jwt.encode(
@@ -112,33 +114,23 @@ async def add_user_to_team(
             "createdAt": datetime.now().timestamp(),
             "id": team.id,
             "hackathon_id": team.hackathon.id,
-            "email": email_schema.email,
+            "email": email.email,
         },
         SECRET_KEY,
         algorithm="HS256",
     )
     await Token.objects.acreate(token=encoded_jwt, is_active=True)
 
-    send_email_task(
-        template_name="teams/invitation_to_team.html",
+    await send_notification(
+        emails=email,
         context={
             "team": team,
             "invite_code": encoded_jwt,
             "frontend_url": FRONTEND_URL,
         },
-        from_email="",
-        recipient_list=[email_schema.email],
+        mail_template="teams/mail/invitation_to_team.html",
+        telegram_template="teams/telegram/invitation_to_team.html",
     )
-    try:
-        user_to_add = Account.objects.get(email=email_schema.email)
-        if user_to_add.telegram_id:
-            telegram_message = (
-                f"👥 Приглашение в команду {team.name}!\n"
-                f"Для принятия приглашения перейдите по ссылке: {FRONTEND_URL}/join-team?team_id={encoded_jwt}"
-            )
-            send_telegram_message(user_to_add.telegram_id, telegram_message)
-    except Account.DoesNotExist:
-        pass
 
     return 201, team
 
@@ -148,7 +140,7 @@ async def add_user_to_team(
     response={200: TeamSchema, ERROR_CODES: ErrorSchema},
 )
 async def remove_user_from_team(
-        request: APIRequest, team_id: uuid.UUID, email_schema: EmailSchema
+    request: APIRequest, team_id: uuid.UUID, email_schema: EmailSchema
 ):
     team = await aget_object_or_404(Team, id=team_id)
     user_to_remove = await aget_object_or_404(
@@ -165,15 +157,12 @@ async def remove_user_from_team(
 
     await team.team_members.aremove(user_to_remove)
 
-    send_email_task(
-        template_name="teams/user_kicked.html",
+    await send_notification(
+        users=user_to_remove,
         context={"team": team},
-        from_email="",
-        recipient_list=[user_to_remove.email],
+        mail_template="teams/mail/user_kicked.html",
+        telegram_template="teams/telegram/user_kicked.html",
     )
-    if user_to_remove.telegram_id:
-        telegram_message = f"🚫 Вас исключили из команды {team.name}.\n"
-        send_telegram_message(user_to_remove.telegram_id, telegram_message)
 
     return 200, team
 
@@ -220,25 +209,25 @@ async def leave_team(request: APIRequest, team_id: uuid.UUID):
 
     if await team.team_members.acount() == 0:
         await team.adelete()
-    else:
-        if team.creator == request.user:
-            team.creator = await team.team_members.afirst()
-            await team.asave()
+        return 200, StatusSchema()
 
-            template_name = "teams/new_team_owner.html"
-            telegram_message = f"👤 Ты назначен тимлидом команды {team.name}!"
-        else:
-            template_name = "teams/user_left_team.html"
-            telegram_message = f"👤 {request.user.email} покинул команду {team.name}"
+    if team.creator == request.user:
+        team.creator = await team.team_members.afirst()
+        await team.asave()
 
-        send_email_task(
-            template_name=template_name,
-            context={"user": request.user, "team": team},
-            from_email="",
-            recipient_list=[team.creator.email],
+        await send_notification(
+            users=team.creator,
+            context={"team": team},
+            mail_template="teams/mail/new_team_owner.html",
+            telegram_template="teams/telegram/new_team_owner.html",
         )
-        if team.creator.telegram_id:
-            send_telegram_message(team.creator.telegram_id, telegram_message)
+    else:
+        await send_notification(
+            users=team.creator,
+            context={"who_left": request.user, "team": team},
+            mail_template="teams/mail/user_left_team.html",
+            telegram_template="teams/telegram/user_left_team.html",
+        )
 
     return 200, StatusSchema()
 
@@ -248,7 +237,7 @@ async def leave_team(request: APIRequest, team_id: uuid.UUID):
     response={200: TeamSchema, ERROR_CODES: ErrorSchema},
 )
 async def edit_team(
-        request: APIRequest, id: uuid.UUID, update_schema: TeamUpdateSchema
+    request: APIRequest, id: uuid.UUID, update_schema: TeamUpdateSchema
 ):
     team = await aget_object_or_404(Team, id=id)
     if team.creator != request.user:
@@ -273,7 +262,7 @@ async def edit_team(
 
 @team_router.get(path="/", response={200: list[TeamSchema], ERROR_CODES: ErrorSchema})
 async def get_teams(
-        request: APIRequest, hackathon_id: uuid.UUID
+    request: APIRequest, hackathon_id: uuid.UUID
 ) -> tuple[int, list[Team]]:
     hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
     teams = [await team.to_entity() async for team in hackathon.team_set.all()]
@@ -286,7 +275,7 @@ async def get_teams(
     response={200: list[VacancySchema], ERROR_CODES: ErrorSchema},
 )
 async def get_team_vacancies(
-        request: APIRequest, id: uuid.UUID
+    request: APIRequest, id: uuid.UUID
 ) -> tuple[int, list[VacancyEntity]]:
     team = await aget_object_or_404(Team, id=id)
     vacancies = [await vacancy.to_entity() async for vacancy in team.vacancies.all()]
@@ -299,7 +288,7 @@ async def get_team_vacancies(
     response={200: UsersSuggestionForVacancySchema, ERROR_CODES: ErrorSchema},
 )
 async def get_suggest_users_for_specific_vacancy(
-        request: APIRequest, vacansion_id: uuid.UUID
+    request: APIRequest, vacansion_id: uuid.UUID
 ):
     vacancy = await aget_object_or_404(Vacancy, id=vacansion_id)
     keywords = {keyword.text.lower() async for keyword in vacancy.keywords}
@@ -334,7 +323,7 @@ async def get_suggest_users_for_specific_vacancy(
     response={200: VacancySuggestionForUserSchema, ERROR_CODES: ErrorSchema},
 )
 async def get_suggest_vacancies_for_specific_user(
-        request: APIRequest, resume_id: uuid.UUID
+    request: APIRequest, resume_id: uuid.UUID
 ):
     resume = await aget_object_or_404(Resume, id=resume_id)
     teams = Team.objects.filter(hackathon=resume.hackathon)
@@ -381,17 +370,13 @@ async def apply_for_job(request: APIRequest, vac_id: uuid.UUID):
         )
 
     await Apply.objects.acreate(vac=vacancy, team=vacancy.team, who_responsed=user)
-    send_email_task(
-        template_name="teams/new_job_response.html",
-        context={"user": user},
-        from_email="",
-        recipient_list=[team.creator.email],
+
+    await send_notification(
+        users=team.creator,
+        context={"who_response": user, "team": team},
+        mail_template="teams/mail/new_job_response.html",
+        telegram_template="teams/telegram/new_job_response.html",
     )
-    if team.creator.telegram_id:
-        telegram_message = f"📩 {user.email} откликнулся на вакансию в команде {vacancy.team.name}"
-        send_telegram_message(
-            vacancy.team.creator.telegram_id, telegram_message
-        )
 
     return 200, StatusSchema()
 
@@ -414,7 +399,7 @@ async def get_team_applies(request: APIRequest, team_id: uuid.UUID):
 
 @team_router.get(path="/{team_id}", response={200: TeamSchema})
 async def get_team_by_id(
-        request: APIRequest, team_id: uuid.UUID
+    request: APIRequest, team_id: uuid.UUID
 ) -> tuple[int, TeamEntity]:
     team = await aget_object_or_404(Team, id=team_id)
     return 200, await team.to_entity()
@@ -425,7 +410,7 @@ async def get_team_by_id(
     response={200: AnalyticsSchema, ERROR_CODES: ErrorSchema},
 )
 async def analytics(
-        request: APIRequest, hackathon_id: uuid.UUID
+    request: APIRequest, hackathon_id: uuid.UUID
 ) -> tuple[int, AnalyticsSchema]:
     hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
     hackathon_participants_count = await hackathon.participants.acount()

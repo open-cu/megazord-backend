@@ -7,7 +7,7 @@ from megazord.api.auth import BadCredentials, create_jwt
 from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema, StatusSchema
-from utils.mail import send_email_task
+from utils.notification import send_notification
 
 from .entities import AccountEntity
 from .models import Account, ConfirmationCode
@@ -45,11 +45,10 @@ async def signup(
     )
     confirmation_code = await ConfirmationCode.generate(user=account)
 
-    send_email_task(
-        template_name="accounts/account_confirmation.html",
+    await send_notification(
+        user=account.email,
         context={"code": confirmation_code.code},
-        from_email="",
-        recipient_list=[account.email],
+        mail_template="accounts/mail/account_confirmation.html",
     )
 
     return 201, await account.to_entity()
@@ -89,11 +88,10 @@ async def resend_code(
 
     confirmation_code = await ConfirmationCode.generate(user=user)
 
-    send_email_task(
-        template_name="accounts/account_confirmation.html",
+    await send_notification(
+        user=user.email,
         context={"code": confirmation_code.code},
-        from_email="",
-        recipient_list=[user.email],
+        mail_template="accounts/mail/account_confirmation.html",
     )
 
     return 200, StatusSchema()
