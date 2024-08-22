@@ -1,6 +1,8 @@
+import asyncio
 import logging
 from typing import Any, Sequence
 
+from aiolimiter import AsyncLimiter
 from asgiref.sync import sync_to_async
 from django.core.mail.backends.base import BaseEmailBackend
 from django.db.models import QuerySet
@@ -13,7 +15,9 @@ from megazord.settings import FRONTEND_URL, TELEGRAM_BOT_TOKEN
 
 logger = logging.getLogger(__name__)
 
-type Recipient[T] = Sequence[T] | QuerySet[T] | T
+limiter = AsyncLimiter(max_rate=30, time_period=1.0)
+
+type Recipient[T] = Sequence[T] | QuerySet[T]
 
 
 async def send_notification(
@@ -154,10 +158,20 @@ async def send_telegram_message(
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": chat_id, "text": message_text, "parse_mode": "HTML"}
 
-    async with AsyncClient() as client:
-        response = await client.post(url=url, json=payload)
-        if response.status_code != 200:
-            logger.error(f"An error was occurred: {response.text}")
-            return False
+    async with limiter:
+        async with AsyncClient() as client:
+            response = await client.post(url=url, json=payload)
+            if response.status_code == 200:
+                logger.info(f"Message sent successfully to `{chat_id}`")
+                return True
+            elif response.status_code == 429:
+                retry_after = int(response.headers.get("Retry-After", 1))
+                logger.warning(
+                    f"Too many requests. Retrying after {retry_after} seconds."
+                )
+                await asyncio.sleep(retry_after)
+            else:
+                logger.error(f"An error occurred: {response.text}")
+                return False
 
     return True
