@@ -259,7 +259,7 @@ async def edit_team(
         await team.asave()
 
     if update_schema.vacancies is not None:
-        await team.vacancies.adelete()
+        await team.vacancies.all().adelete()
         for vacancy_schema in update_schema.vacancies:
             vacancy = await Vacancy.objects.acreate(name=vacancy_schema.name, team=team)
 
