@@ -89,7 +89,7 @@ async def decline_application(request: APIRequest, app_id: uuid.UUID):
 
 @team_router.post(
     path="/{team_id}/add_user",
-    response={201: TeamSchema, ERROR_CODES: ErrorSchema},
+    response={201: StatusSchema, ERROR_CODES: ErrorSchema},
 )
 async def add_user_to_team(
     request: APIRequest, team_id: uuid.UUID, email_schema: EmailSchema
@@ -133,7 +133,7 @@ async def add_user_to_team(
         telegram_template="teams/telegram/invitation_to_team.html",
     )
 
-    return 201, await team.to_entity()
+    return 201, StatusSchema()
 
 
 @team_router.delete(
