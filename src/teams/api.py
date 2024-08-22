@@ -102,7 +102,9 @@ async def add_user_to_team(
             detail="You are not creator and you can not edit this hackathon"
         )
 
-    user_to_add = await aget_object_or_404(Account, email=email_schema.email)
+    user_to_add = await aget_object_or_404(
+        Account, email=email_schema.email, hackathons__id=team.hackathon_id
+    )
 
     if user_to_add == user:
         return 400, ErrorSchema(detail="You can not add self")
@@ -176,22 +178,25 @@ async def remove_user_from_team(
 async def join_team(request: APIRequest, team_id: uuid.UUID, token: str):
     user = request.user
 
-    team = await aget_object_or_404(Team, id=team_id)
-
     tkn = await aget_object_or_404(Token, token=token)
     if not tkn.is_active:
-        return 403, {"details": "token in not active"}
+        return 403, ErrorSchema(detail="token in not active")
 
     tkn.is_active = False
     await tkn.asave()
+
+    team = await aget_object_or_404(
+        Team.objects.select_related("hackathon"), id=team_id
+    )
+    if not await team.hackathon.participants.acontains(user):
+        return 400, ErrorSchema(detail="User not in hackathon")
 
     if await team.team_members.acontains(user):
         return 400, ErrorSchema(detail="User already in this team")
 
     total_team_participants = await team.team_members.acount()
-    hackathon = await Hackathon.objects.aget(team=team)
 
-    if total_team_participants >= hackathon.max_participants:
+    if total_team_participants >= team.hackathon.max_participants:
         return 400, ErrorSchema(detail="Team is full")
 
     await team.team_members.aadd(user)
