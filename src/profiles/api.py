@@ -9,6 +9,7 @@ from megazord.api.auth import AuthBearer
 from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema, StatusSchema
+from megazord.settings import TELEGRAM_BOT_USERNAME
 
 from .schemas import ProfileEditSchema, ProfileSchema, TelegramLinkSchema
 
@@ -65,6 +66,6 @@ async def link_telegram(request: APIRequest, user_id: uuid.UUID, telegram_id: in
 )
 async def generate_telegram_link(request: APIRequest) -> tuple[int, TelegramLinkSchema]:
     user = request.user
-    telegram_link = f"https://t.me/FindYourMate_bot?start={user.id}"
+    telegram_link = f"https://t.me/{TELEGRAM_BOT_USERNAME}?start={user.id}"
 
     return 200, TelegramLinkSchema(telegram_link=telegram_link)

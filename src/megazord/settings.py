@@ -163,3 +163,4 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CONFIRMATION_CODE_TTL = env.int("CONFIRMATION_CODE_TTL", default=2)
 
 TELEGRAM_BOT_TOKEN = env.str("TELEGRAM_BOT_TOKEN", default="228")
+TELEGRAM_BOT_USERNAME = env.str("TELEGRAM_BOT_USERNAME", default="FindYourMate_bot")
