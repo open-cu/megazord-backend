@@ -6,7 +6,7 @@ from django.db.models import Count
 from django.shortcuts import aget_object_or_404
 from ninja import Router
 
-from accounts.models import Email
+from accounts.models import Account
 from hackathons.models import Hackathon
 from hackathons.schemas import HackathonSummarySchema
 from megazord.api.codes import ERROR_CODES
@@ -102,12 +102,12 @@ async def add_user_to_team(
             detail="You are not creator and you can not edit this hackathon"
         )
 
-    email = await aget_object_or_404(Email, email=email_schema.email)
+    user_to_add = await aget_object_or_404(Account, email=email_schema.email)
 
-    if email.email == user.email:
+    if user_to_add == user:
         return 400, ErrorSchema(detail="You can not add self")
 
-    if await team.team_members.filter(user__email=email).aexists():
+    if await team.team_members.acontains(user_to_add):
         return 400, ErrorSchema(detail="User already in team")
 
     encoded_jwt = jwt.encode(
@@ -115,7 +115,7 @@ async def add_user_to_team(
             "createdAt": datetime.now().timestamp(),
             "id": team.id,
             "hackathon_id": team.hackathon.id,
-            "email": email.email,
+            "email": user_to_add.email,
         },
         SECRET_KEY,
         algorithm="HS256",
@@ -123,7 +123,7 @@ async def add_user_to_team(
     await Token.objects.acreate(token=encoded_jwt, is_active=True)
 
     await send_notification(
-        emails=email,
+        users=user_to_add,
         context={
             "team": team,
             "invite_code": encoded_jwt,
