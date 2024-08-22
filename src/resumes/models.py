@@ -3,7 +3,7 @@ import uuid
 from django.db import models
 
 from accounts.models import Account
-from hackathons.models import Hackathon
+from hackathons.models import Hackathon, Role
 from resumes.entities import ResumeEntity
 
 
@@ -22,13 +22,17 @@ class Resume(models.Model):
         unique_together = (("user", "hackathon"),)
 
     async def to_entity(self) -> ResumeEntity:
-        role = await self.hackathon.roles.filter(users=self.user).afirst()
+        try:
+            db_role = await self.hackathon.roles.aget(users=self.user)
+            role = db_role.name
+        except Role.DoesNotExist:
+            role = None
 
         return ResumeEntity(
             id=self.id,
             user_id=str(self.user_id),
             hackathon_id=str(self.hackathon_id),
-            role=role.name,
+            role=role,
             bio=self.bio,
             personal_website=self.personal_website,
             github=self.github,
