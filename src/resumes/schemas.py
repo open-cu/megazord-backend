@@ -1,6 +1,7 @@
 import uuid
 
 from ninja import ModelSchema, Schema
+from pydantic import Field
 
 from resumes.models import Resume
 
@@ -31,8 +32,8 @@ class ResumeSchema(Schema):
     telegram: str | None
 
     role: str | None
-    tech: list[str]
-    soft: list[str]
+    tech: list[str] = Field(alias="hard_skills")
+    soft: list[str] = Field(alias="soft_skills")
 
 
 class LinkSchema(Schema):
