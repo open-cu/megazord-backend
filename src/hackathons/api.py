@@ -117,7 +117,7 @@ async def send_invites(
 ):
     hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
 
-    if request.user != hackathon.creator:
+    if hackathon.creator_id != request.user.id:
         return 403, ErrorSchema(detail="You are not creator")
 
     await send_notification(
