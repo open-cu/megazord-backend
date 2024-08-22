@@ -113,7 +113,7 @@ async def add_user_to_team(
     encoded_jwt = jwt.encode(
         {
             "createdAt": datetime.now().timestamp(),
-            "id": team.id,
+            "id": str(team.id),
             "email": user_to_add.email,
         },
         SECRET_KEY,
