@@ -148,10 +148,10 @@ async def remove_user_from_team(
         Team.objects.prefetch_related("team_members"), id=team_id
     )
     user_to_remove = await aget_object_or_404(
-        team.team_members, user__email=email_schema.email
+        team.team_members, email=email_schema.email
     )
 
-    if team.creator != request.user:
+    if team.creator_id != request.user.id:
         return 403, ErrorSchema(
             detail="You are not creator and you can not edit this team"
         )
