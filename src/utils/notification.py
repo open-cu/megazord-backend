@@ -32,7 +32,7 @@ async def send_notification(
     if context is None:
         context = {}
 
-    if users:
+    if users is not None:
         await send_notification_by_user(
             users=users,
             context=context,
@@ -40,7 +40,7 @@ async def send_notification(
             telegram_template=telegram_template,
         )
 
-    if emails:
+    if emails is not None:
         await send_notification_by_email(
             emails=emails,
             context=context,
