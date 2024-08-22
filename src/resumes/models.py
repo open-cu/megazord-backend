@@ -22,16 +22,13 @@ class Resume(models.Model):
         unique_together = (("user", "hackathon"),)
 
     async def to_entity(self) -> ResumeEntity:
-        try:
-            role = await self.hackathon.roles.aget(users=self.user).name
-        except self.hackathon.roles.ObjectDoesNotExist:
-            role = None
+        role = await self.hackathon.roles.filter(users=self.user).afirst()
 
         return ResumeEntity(
             id=self.id,
             user=await self.user.to_entity(),
             hackathon=await self.hackathon.to_entity(),
-            role=role,
+            role=role.name,
             bio=self.bio,
             personal_website=self.personal_website,
             github=self.github,
