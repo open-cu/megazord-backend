@@ -9,6 +9,7 @@ class VacancyEntity:
     id: str
     name: str
     keywords: list[str]
+    team: TeamEntity
 
 
 @dataclass
