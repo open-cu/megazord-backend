@@ -23,8 +23,8 @@ class Hackathon(models.Model):
     description = models.TextField(null=False, default="описание хакатона")
     min_participants = models.IntegerField(null=True, default=3)
     max_participants = models.IntegerField(null=True, default=5)
-    participants = models.ManyToManyField(Account)
-    emails = models.ManyToManyField(Email, related_name="emails")
+    participants = models.ManyToManyField(Account, related_name="hackathons")
+    emails = models.ManyToManyField(Email, related_name="hackathons")
 
     def __str__(self):
         return self.name

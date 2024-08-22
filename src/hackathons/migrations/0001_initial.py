@@ -54,12 +54,14 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "emails",
-                    models.ManyToManyField(related_name="emails", to="accounts.email"),
+                    models.ManyToManyField(
+                        related_name="hackathons", to="accounts.email"
+                    ),
                 ),
                 (
                     "participants",
                     models.ManyToManyField(
-                        related_name="participants", to=settings.AUTH_USER_MODEL
+                        related_name="hackathons", to=settings.AUTH_USER_MODEL
                     ),
                 ),
             ],
