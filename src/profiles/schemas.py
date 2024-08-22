@@ -18,3 +18,7 @@ class ProfileEditSchema(Schema):
     age: int | None = None
     city: str | None = None
     work_experience: int | None = None
+
+
+class TelegramLinkSchema(Schema):
+    telegram_link: str
