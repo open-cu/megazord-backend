@@ -117,7 +117,7 @@ async def send_invites(
 ):
     hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
 
-    if request.user != hackathon.creator:
+    if hackathon.creator_id != request.user.id:
         return 403, ErrorSchema(detail="You are not creator")
 
     await send_notification(
@@ -356,7 +356,7 @@ async def start_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
     await hackathon.asave()
 
     await send_notification(
-        emails=hackathon.emails,
+        emails=hackathon.emails.all(),
         context={"hackathon": hackathon},
         mail_template="hackathons/mail/invitation_to_hackathon.html",
         telegram_template="hackathons/telegram/invitation_to_hackathon.html",
@@ -382,7 +382,7 @@ async def end_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
     await hackathon.asave()
 
     await send_notification(
-        users=hackathon.participants,
+        users=hackathon.participants.all(),
         context={"hackathon": hackathon},
         mail_template="hackathons/telegram/hackathon_ended.html",
         telegram_template="hackathons/telegram/hackathon_ended.html",
