@@ -19,9 +19,9 @@ class Team(models.Model):
     async def to_entity(self) -> TeamEntity:
         return TeamEntity(
             id=self.id,
-            hackathon=await self.hackathon.to_entity(),
+            hackathon_id=str(self.hackathon_id),
             name=self.name,
-            creator=await self.creator.to_entity(),
+            creator_id=str(self.creator_id),
             team_members=[
                 await member.to_entity() async for member in self.team_members.all()
             ],
@@ -32,5 +32,5 @@ class Token(models.Model):
     id = models.UUIDField(
         primary_key=True, default=uuid.uuid4, editable=False
     )  # Добавлено UUID поле
-    token = models.CharField(max_length=200)
+    token = models.CharField(max_length=2048)
     is_active = models.BooleanField()

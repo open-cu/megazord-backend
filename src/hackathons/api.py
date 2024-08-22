@@ -269,14 +269,14 @@ async def list_my_hackathons(request: APIRequest):
 
 
 @hackathon_router.get(
-    path="/get_user_team/{id}", response={200: TeamSchema, ERROR_CODES: ErrorSchema}
+    path="/get_user_team/{id}",
+    response={200: TeamSchema, ERROR_CODES: ErrorSchema},
 )
 async def get_user_team_in_hackathon(request: APIRequest, id: uuid.UUID):
     user = request.user
-    hackathon = await aget_object_or_404(Hackathon, id=int(id))
-    teams_queryset = Team.objects.filter(hackathon=hackathon).filter(team_members=user)
-    teams = [await team.to_entity() async for team in teams_queryset]
-    return teams
+    team = await aget_object_or_404(Team, hackathon_id=id, team_members=user)
+
+    return 200, await team.to_entity()
 
 
 @hackathon_router.post(

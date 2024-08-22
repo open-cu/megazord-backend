@@ -17,7 +17,6 @@ class Vacancy(models.Model):
             id=self.id,
             name=self.name,
             keywords=[keyword.text async for keyword in self.keywords.all()],
-            team=await self.team.to_entity(),
         )
 
 

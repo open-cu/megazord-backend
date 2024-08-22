@@ -1,13 +1,12 @@
 from dataclasses import dataclass
 
 from accounts.entities import AccountEntity
-from hackathons.entities import HackathonEntity
 
 
 @dataclass
 class TeamEntity:
     id: str
-    hackathon: HackathonEntity
+    hackathon_id: str
     name: str
-    creator: AccountEntity
+    creator_id: str
     team_members: list[AccountEntity]

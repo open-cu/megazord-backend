@@ -6,7 +6,7 @@ from django.db.models import Count
 from django.shortcuts import aget_object_or_404
 from ninja import Router
 
-from accounts.models import Email
+from accounts.models import Account
 from hackathons.models import Hackathon
 from hackathons.schemas import HackathonSummarySchema
 from megazord.api.codes import ERROR_CODES
@@ -89,7 +89,7 @@ async def decline_application(request: APIRequest, app_id: uuid.UUID):
 
 @team_router.post(
     path="/{team_id}/add_user",
-    response={201: TeamSchema, ERROR_CODES: ErrorSchema},
+    response={201: StatusSchema, ERROR_CODES: ErrorSchema},
 )
 async def add_user_to_team(
     request: APIRequest, team_id: uuid.UUID, email_schema: EmailSchema
@@ -102,20 +102,21 @@ async def add_user_to_team(
             detail="You are not creator and you can not edit this hackathon"
         )
 
-    email = await aget_object_or_404(Email, email=email_schema.email)
+    user_to_add = await aget_object_or_404(
+        Account, email=email_schema.email, hackathons__id=team.hackathon_id
+    )
 
-    if email.email == user.email:
+    if user_to_add == user:
         return 400, ErrorSchema(detail="You can not add self")
 
-    if await team.team_members.filter(user__email=email).aexists():
+    if await team.team_members.acontains(user_to_add):
         return 400, ErrorSchema(detail="User already in team")
 
     encoded_jwt = jwt.encode(
         {
             "createdAt": datetime.now().timestamp(),
-            "id": team.id,
-            "hackathon_id": team.hackathon.id,
-            "email": email.email,
+            "id": str(team.id),
+            "email": user_to_add.email,
         },
         SECRET_KEY,
         algorithm="HS256",
@@ -123,7 +124,7 @@ async def add_user_to_team(
     await Token.objects.acreate(token=encoded_jwt, is_active=True)
 
     await send_notification(
-        emails=email,
+        users=user_to_add,
         context={
             "team": team,
             "invite_code": encoded_jwt,
@@ -133,7 +134,7 @@ async def add_user_to_team(
         telegram_template="teams/telegram/invitation_to_team.html",
     )
 
-    return 201, await team.to_entity()
+    return 201, StatusSchema()
 
 
 @team_router.delete(
@@ -177,22 +178,25 @@ async def remove_user_from_team(
 async def join_team(request: APIRequest, team_id: uuid.UUID, token: str):
     user = request.user
 
-    team = await aget_object_or_404(Team, id=team_id)
-
     tkn = await aget_object_or_404(Token, token=token)
     if not tkn.is_active:
-        return 403, {"details": "token in not active"}
+        return 403, ErrorSchema(detail="token in not active")
 
     tkn.is_active = False
     await tkn.asave()
+
+    team = await aget_object_or_404(
+        Team.objects.select_related("hackathon"), id=team_id
+    )
+    if not await team.hackathon.participants.acontains(user):
+        return 400, ErrorSchema(detail="User not in hackathon")
 
     if await team.team_members.acontains(user):
         return 400, ErrorSchema(detail="User already in this team")
 
     total_team_participants = await team.team_members.acount()
-    hackathon = await Hackathon.objects.aget(teams=team)
 
-    if total_team_participants >= hackathon.max_participants:
+    if total_team_participants >= team.hackathon.max_participants:
         return 400, ErrorSchema(detail="Team is full")
 
     await team.team_members.aadd(user)
@@ -245,7 +249,7 @@ async def edit_team(
     team = await aget_object_or_404(
         Team.objects.prefetch_related("team_members"), id=id
     )
-    if team.creator != request.user:
+    if team.creator_id != request.user.id:
         return 403, ErrorSchema(
             detail="You are not creator and you can not edit this team"
         )
@@ -255,7 +259,7 @@ async def edit_team(
         await team.asave()
 
     if update_schema.vacancies is not None:
-        await team.vacancies.adelete()
+        await team.vacancies.all().adelete()
         for vacancy_schema in update_schema.vacancies:
             vacancy = await Vacancy.objects.acreate(name=vacancy_schema.name, team=team)
 
@@ -333,7 +337,7 @@ async def get_suggest_vacancies_for_specific_user(
     request: APIRequest, resume_id: uuid.UUID
 ):
     resume = await aget_object_or_404(Resume, id=resume_id)
-    teams = Team.objects.filter(hackathon=resume.hackathon)
+    teams = Team.objects.filter(hackathon_id=resume.hackathon_id)
 
     skills = set()
     async for soft in resume.soft_skills.all():
