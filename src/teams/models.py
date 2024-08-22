@@ -19,9 +19,9 @@ class Team(models.Model):
     async def to_entity(self) -> TeamEntity:
         return TeamEntity(
             id=self.id,
-            hackathon=await self.hackathon.to_entity(),
+            hackathon_id=str(self.hackathon_id),
             name=self.name,
-            creator=await self.creator.to_entity(),
+            creator_id=str(self.creator_id),
             team_members=[
                 await member.to_entity() async for member in self.team_members.all()
             ],

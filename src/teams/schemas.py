@@ -31,9 +31,9 @@ class TeamUpdateSchema(Schema):
 
 class TeamSchema(Schema):
     id: uuid.UUID
-    hackathon: uuid.UUID
+    hackathon: uuid.UUID = Field(alias="hackathon_id")
     name: str
-    creator: uuid.UUID
+    creator: uuid.UUID = Field(alias="creator_id")
     team_members: list[ProfileSchema]
 
 
