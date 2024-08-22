@@ -23,6 +23,7 @@ services:
       - DATABASE_PORT=${DATABASE_PORT:-5432}
       - FRONTEND_URL=${FRONTEND_URL:-http:/localhost:3000}
       - CONFIRMATION_CODE_TTL=${CONFIRMATION_CODE_TTL:-2}
+      - TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME:-FindYourMate_bot}
 
     depends_on:
       - db
