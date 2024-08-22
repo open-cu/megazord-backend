@@ -32,5 +32,5 @@ class Token(models.Model):
     id = models.UUIDField(
         primary_key=True, default=uuid.uuid4, editable=False
     )  # Добавлено UUID поле
-    token = models.CharField(max_length=200)
+    token = models.CharField(max_length=2048)
     is_active = models.BooleanField()
