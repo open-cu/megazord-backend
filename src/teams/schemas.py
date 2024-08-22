@@ -1,7 +1,7 @@
 import uuid
 
 from ninja import Field, Schema
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from profiles.schemas import ProfileSchema
 
@@ -30,6 +30,8 @@ class TeamUpdateSchema(Schema):
 
 
 class TeamSchema(Schema):
+    model_config = ConfigDict(populate_by_name=True)
+
     id: uuid.UUID
     hackathon: uuid.UUID = Field(alias="hackathon_id")
     name: str
