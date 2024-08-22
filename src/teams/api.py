@@ -249,7 +249,7 @@ async def edit_team(
     team = await aget_object_or_404(
         Team.objects.prefetch_related("team_members"), id=id
     )
-    if team.creator != request.user:
+    if team.creator_id != request.user.id:
         return 403, ErrorSchema(
             detail="You are not creator and you can not edit this team"
         )
