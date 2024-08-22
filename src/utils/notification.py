@@ -62,7 +62,7 @@ async def send_notification_by_email(
 
     for email in emails:
         try:
-            user = Account.objects.get(email=email)
+            user = await Account.objects.aget(email=email)
         except Account.DoesNotExist:
             user = None
         context.update({"current_user": user})
