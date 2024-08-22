@@ -9,7 +9,7 @@ from httpx import AsyncClient
 from mail_templated import send_mail as send_mail_sync
 
 from accounts.models import Account, Email
-from megazord.settings import TELEGRAM_BOT_TOKEN
+from megazord.settings import FRONTEND_URL, TELEGRAM_BOT_TOKEN
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +26,15 @@ async def send_notification(
     if users is None and emails is None:
         raise ValueError("Recipients have not been passed")
 
+    if mail_template is None and telegram_template is None:
+        raise ValueError("Templates have not been passed")
+
     if users is not None and emails is not None:
         raise ValueError("You can pass either `users` or `emails`")
 
     if context is None:
         context = {}
+    context.update({"current_user": None, "frontend_url": FRONTEND_URL})
 
     if users is not None:
         await send_notification_by_user(
@@ -63,9 +67,9 @@ async def send_notification_by_email(
     for email in emails:
         try:
             user = await Account.objects.aget(email=email)
+            context["current_user"] = user
         except Account.DoesNotExist:
             user = None
-        context.update({"current_user": user})
 
         if mail_template is not None:
             await send_email(
@@ -98,7 +102,7 @@ async def send_notification_by_user(
         users = [users]
 
     for user in users:
-        context.update({"current_user": user})
+        context["current_user"] = user
 
         if mail_template is not None:
             await send_email(
@@ -141,7 +145,7 @@ async def send_email(
 
 
 async def send_telegram_message(
-    template_name: str, context: dict[str, Any], chat_id: int | Sequence[int]
+    template_name: str, context: dict[str, Any], chat_id: int
 ) -> bool:
     logger.info(f"Sending telegram message to `{chat_id}`")
 
