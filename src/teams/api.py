@@ -189,7 +189,7 @@ async def join_team(request: APIRequest, team_id: uuid.UUID, token: str):
         return 400, ErrorSchema(detail="User already in this team")
 
     total_team_participants = await team.team_members.acount()
-    hackathon = await Hackathon.objects.aget(teams=team)
+    hackathon = await Hackathon.objects.aget(team=team)
 
     if total_team_participants >= hackathon.max_participants:
         return 400, ErrorSchema(detail="Team is full")
