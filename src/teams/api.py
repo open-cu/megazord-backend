@@ -448,10 +448,8 @@ async def hackathon_summary(request: APIRequest, hackathon_id: uuid.UUID):
     if hackathon.creator_id != request.user.id:
         return 403, ErrorSchema(detail="You are not the creator")
 
-    # Общее количество команд
     total_teams = await Team.objects.filter(hackathon=hackathon).acount()
 
-    # Количество команд с максимальным количеством участников (полные команды)
     full_teams = await (
         Team.objects.filter(hackathon=hackathon)
         .annotate(num_members=Count("team_members"))
@@ -459,15 +457,12 @@ async def hackathon_summary(request: APIRequest, hackathon_id: uuid.UUID):
         .acount()
     )
 
-    # Процент полных команд
     percent_full_teams = (full_teams / total_teams) * 100 if total_teams > 0 else 0
 
-    # Список людей без команд
     people_without_teams = hackathon.participants.exclude(
         team_members__hackathon=hackathon
     )
 
-    # Количество людей в командах из тех, кто зарегистрировался
     people_in_teams = await (
         Team.objects.filter(hackathon=hackathon)
         .values_list("team_members", flat=True)
@@ -475,10 +470,8 @@ async def hackathon_summary(request: APIRequest, hackathon_id: uuid.UUID):
         .acount()
     )
 
-    # Количество приглашенных людей (по количеству emails в хакатоне)
     invited_people = await hackathon.emails.acount()
 
-    # Количество людей, принявших приглашение (по количеству участников)
     accepted_invite = await hackathon.participants.acount()
 
     return HackathonSummarySchema(
@@ -499,17 +492,14 @@ async def hackathon_summary(request: APIRequest, hackathon_id: uuid.UUID):
     response={200: list[ProfileSchema], ERROR_CODES: ErrorSchema},
 )
 async def get_participants_without_team(request: APIRequest, hackathon_id: uuid.UUID):
-    # Получаем хакатон по id
     hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
     if hackathon.creator_id != request.user.id:
         return 403, ErrorSchema(detail="You are not the creator")
 
-    # Вычисляем участников, которые не входят в команды
     participants_without_team = hackathon.participants.exclude(
         team_members__hackathon=hackathon
     )
 
-    # Возвращаем список участников без команды с именем, ролью и id
     return 200, [
         await participant.to_entity() async for participant in participants_without_team
     ]
@@ -520,7 +510,6 @@ async def get_participants_without_team(request: APIRequest, hackathon_id: uuid.
     response={200: list[str], ERROR_CODES: ErrorSchema},
 )
 async def pending_invitations(request: APIRequest, hackathon_id: uuid.UUID):
-    # Получаем хакатон по id
     hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
     if hackathon.creator_id != request.user.id:
         return 403, ErrorSchema(detail="You are not the creator")

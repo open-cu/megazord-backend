@@ -66,3 +66,16 @@ class UserRole(models.Model):
 
     class Meta:
         unique_together = (("hackathon", "user"),)
+
+
+class NotificationStatus(models.Model):
+    id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
+    email = models.EmailField()
+    hackathon = models.ForeignKey(
+        Hackathon, on_delete=models.CASCADE, related_name="notification_statuses"
+    )
+    email_sent = models.BooleanField(default=False)
+    telegram_sent = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"NotificationStatus for {self.email} in hackathon {self.hackathon.name}"
