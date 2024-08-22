@@ -114,7 +114,6 @@ async def add_user_to_team(
         {
             "createdAt": datetime.now().timestamp(),
             "id": team.id,
-            "hackathon_id": team.hackathon.id,
             "email": user_to_add.email,
         },
         SECRET_KEY,
