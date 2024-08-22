@@ -1,7 +1,7 @@
 import logging
 import uuid
 from smtplib import SMTPException
-from typing import Annotated
+from typing import Annotated, Any
 
 from django.db.models import Q
 from django.http import HttpResponse
@@ -310,7 +310,7 @@ async def upload_emails_to_hackathon(
 
 @hackathon_router.get(
     path="/{hackathon_id}/export",
-    response={200: HttpResponse, ERROR_CODES: ErrorSchema},
+    response={200: Any, ERROR_CODES: ErrorSchema},
 )
 async def export_participants_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
     user = request.user
