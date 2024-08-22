@@ -46,7 +46,7 @@ async def signup(
     confirmation_code = await ConfirmationCode.generate(user=account)
 
     await send_notification(
-        user=account.email,
+        users=account,
         context={"code": confirmation_code.code},
         mail_template="accounts/mail/account_confirmation.html",
     )
@@ -89,7 +89,7 @@ async def resend_code(
     confirmation_code = await ConfirmationCode.generate(user=user)
 
     await send_notification(
-        user=user.email,
+        users=user,
         context={"code": confirmation_code.code},
         mail_template="accounts/mail/account_confirmation.html",
     )
