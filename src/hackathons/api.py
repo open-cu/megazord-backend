@@ -269,7 +269,8 @@ async def list_my_hackathons(request: APIRequest):
 
 
 @hackathon_router.get(
-    path="/get_user_team/{id}", response={200: TeamSchema, ERROR_CODES: ErrorSchema}
+    path="/get_user_team/{id}",
+    response={200: list[TeamSchema], ERROR_CODES: ErrorSchema},
 )
 async def get_user_team_in_hackathon(request: APIRequest, id: uuid.UUID):
     user = request.user
