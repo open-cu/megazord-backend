@@ -25,7 +25,7 @@ class HackathonSchema(Schema):
         return base64.b64encode(obj.image_cover).decode()
 
 
-class HackathonIn(Schema):
+class HackathonCreateSchema(Schema):
     name: str
     description: str
     min_participants: int = 1
@@ -34,20 +34,26 @@ class HackathonIn(Schema):
     roles: list[str] = []
 
 
-class EditHackathon(Schema):
+class HackathonEditSchema(Schema):
     name: str | None = ""
     description: str | None = ""
     min_participants: int | None = None
     max_participants: int | None = None
 
 
-class AddUserToHack(Schema):
+class HackathonSummarySchema(Schema):
+    total_teams: int
+    full_teams: int
+    percent_full_teams: float
+    people_without_teams: list[ProfileSchema]
+    people_in_teams: int
+    invited_people: int
+    accepted_invite: int
+
+
+class EmailSchema(Schema):
     email: EmailStr
 
 
 class EmailsSchema(Schema):
     emails: list[EmailStr]
-
-
-class StatusOK(Schema):
-    status: str = "ok"

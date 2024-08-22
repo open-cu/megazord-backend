@@ -6,31 +6,24 @@ from ninja import Router
 from accounts.entities import AccountEntity
 from accounts.models import Account
 from megazord.api.auth import AuthBearer
+from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
-from megazord.schemas import ErrorSchema
+from megazord.schemas import ErrorSchema, StatusSchema
 
-from .schemas import ProfileEditSchema, ProfileSchema
+from .schemas import ProfileEditSchema, ProfileSchema, TelegramLinkSchema
 
 router = Router(auth=AuthBearer())
 
 
-@router.get(path="/profile", response={200: ProfileSchema, 401: ErrorSchema})
-async def get_my_profile(request: APIRequest) -> AccountEntity:
-    return await request.user.to_entity()
+@router.get(path="/profile", response={200: ProfileSchema, ERROR_CODES: ErrorSchema})
+async def get_my_profile(request: APIRequest) -> tuple[int, AccountEntity]:
+    return 200, await request.user.to_entity()
 
 
-@router.patch(
-    path="/profile",
-    response={
-        200: ProfileSchema,
-        201: ProfileSchema,
-        401: ErrorSchema,
-        409: ErrorSchema,
-    },
-)
+@router.patch(path="/profile", response={200: ProfileSchema, ERROR_CODES: ErrorSchema})
 async def profile_patch(
     request: APIRequest, edit_schema: ProfileEditSchema
-) -> AccountEntity:
+) -> tuple[int, AccountEntity]:
     me = request.user
     me.age = edit_schema.age
     me.city = edit_schema.city
@@ -38,12 +31,12 @@ async def profile_patch(
     me.work_experience = edit_schema.work_experience
     await me.asave()
 
-    return await me.to_entity()
+    return 200, await me.to_entity()
 
 
 @router.get(
     path="/profiles/{user_id}",
-    response={200: ProfileSchema, 401: ErrorSchema, 404: ErrorSchema},
+    response={200: ProfileSchema, ERROR_CODES: ErrorSchema},
 )
 async def get_profile(request: APIRequest, user_id: uuid.UUID) -> AccountEntity:
     user = await aget_object_or_404(Account, id=user_id)
@@ -54,7 +47,7 @@ async def get_profile(request: APIRequest, user_id: uuid.UUID) -> AccountEntity:
 @router.post(
     path="/link_telegram",
     summary="Link Telegram ID",
-    response={200: dict, 404: ErrorSchema},
+    response={200: StatusSchema, ERROR_CODES: ErrorSchema},
 )
 async def link_telegram(request: APIRequest, user_id: uuid.UUID, telegram_id: int):
     user = await aget_object_or_404(Account, id=user_id)
@@ -62,17 +55,16 @@ async def link_telegram(request: APIRequest, user_id: uuid.UUID, telegram_id: in
     user.telegram_id = telegram_id
     await user.asave()
 
-    return {"detail": "Telegram ID привязан успешно"}
+    return 200, StatusSchema()
 
 
 @router.get(
     path="/generate_telegram_link",
     summary="Generate Telegram Link",
-    response={200: dict, 401: ErrorSchema},
+    response={200: TelegramLinkSchema, ERROR_CODES: ErrorSchema},
 )
-async def generate_telegram_link(request: APIRequest) -> dict:
+async def generate_telegram_link(request: APIRequest) -> tuple[int, TelegramLinkSchema]:
     user = request.user
+    telegram_link = f"https://t.me/FindYourMate_bot?start={user.id}"
 
-    telegram_link = f"https://t.me/FindYourMate_bot?start={(user.id)}"
-
-    return {"telegram_link": telegram_link}
+    return 200, TelegramLinkSchema(telegram_link=telegram_link)

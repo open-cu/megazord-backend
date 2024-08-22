@@ -139,7 +139,7 @@ async def suggest_resume_hh(
 async def suggest_resume_pdf(request: APIRequest, pdf: UploadedFile = File(...)):
     try:
         text = ""
-        reader = PdfReader(pdf)
+        reader = PdfReader(pdf.read())
         for page in reader.pages:
             text += page.extract_text()
         payload = Chat(
@@ -161,4 +161,4 @@ async def suggest_resume_pdf(request: APIRequest, pdf: UploadedFile = File(...))
             data = json.loads(data)
             return 200, data
     except GigaChatException:
-        return 400, {"details": "Резюме слишком большое"}
+        return 400, ErrorSchema(detail="Резюме слишком большое")
