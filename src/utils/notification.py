@@ -69,7 +69,9 @@ async def send_notification_by_email(
 
         if mail_template is not None:
             await send_email(
-                template_name="", context=context, recipient_list=[email.email]
+                template_name=mail_template,
+                context=context,
+                recipient_list=[email.email],
             )
 
         if (
@@ -100,7 +102,9 @@ async def send_notification_by_user(
 
         if mail_template is not None:
             await send_email(
-                template_name="", context=context, recipient_list=[user.email]
+                template_name=mail_template,
+                context=context,
+                recipient_list=[user.email],
             )
 
         if telegram_template is not None and user.telegram_id is not None:
