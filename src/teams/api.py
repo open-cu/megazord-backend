@@ -337,7 +337,7 @@ async def get_suggest_vacancies_for_specific_user(
     request: APIRequest, resume_id: uuid.UUID
 ):
     resume = await aget_object_or_404(Resume, id=resume_id)
-    teams = Team.objects.filter(hackathon=resume.hackathon)
+    teams = Team.objects.filter(hackathon_id=resume.hackathon_id)
 
     skills = set()
     async for soft in resume.soft_skills.all():
