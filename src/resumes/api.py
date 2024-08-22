@@ -59,11 +59,7 @@ async def create_custom_resume(
 async def get_resume(
     request: APIRequest, hackathon_id: uuid.UUID, user_id: uuid.UUID
 ) -> ResumeEntity:
-    resume = await aget_object_or_404(
-        Resume.objects.select_related("hackathon"),
-        user=user_id,
-        hackathon_id=hackathon_id,
-    )
+    resume = await aget_object_or_404(Resume, user=user_id, hackathon_id=hackathon_id)
 
     return await resume.to_entity()
 
@@ -73,7 +69,7 @@ async def edit_resume(
     request: APIRequest, update_schema: ResumeUpdateSchema
 ) -> ResumeEntity:
     resume = await aget_object_or_404(
-        Resume.objects.select_related("hackathon"),
+        Resume,
         user=request.user,
         hackathon_id=update_schema.hackathon_id,
         hackathon__status=Hackathon.Status.STARTED,

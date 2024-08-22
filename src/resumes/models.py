@@ -23,7 +23,9 @@ class Resume(models.Model):
 
     async def to_entity(self) -> ResumeEntity:
         try:
-            db_role = await self.hackathon.roles.aget(users=self.user)
+            db_role = await Role.objects.aget(
+                hackathon_id=self.hackathon_id, users_id=self.user_id
+            )
             role = db_role.name
         except Role.DoesNotExist:
             role = None
