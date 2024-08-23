@@ -2,6 +2,7 @@ import uuid
 from datetime import timedelta
 from random import randint
 
+from asgiref.sync import sync_to_async
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.db import models
 from django.utils import timezone
@@ -11,7 +12,7 @@ from megazord.settings import CONFIRMATION_CODE_TTL
 
 
 class MyAccountManager(BaseUserManager):
-    async def create_user(
+    def create_user(
         self,
         email: str,
         username: str,
@@ -21,35 +22,48 @@ class MyAccountManager(BaseUserManager):
         city: str | None = None,
         work_experience: int | None = None,
         is_active: bool = False,
-    ):
-        if not email:
-            raise ValueError("Users must have an email address")
-        if not username:
-            raise ValueError("Users must have a username")
-        if is_organizator is None:
-            raise ValueError("Users must have a is_organizator")
-
+    ) -> "Account":
         user = self.model(
             email=self.normalize_email(email),
             username=username,
             is_organizator=is_organizator,
             is_active=is_active,
+            age=age,
+            city=city,
+            work_experience=work_experience,
         )
-
-        if age is not None:
-            user.age = age
-        if city is not None:
-            user.city = city
-        if work_experience is not None:
-            user.work_experience = work_experience
-
         user.set_password(password)
-        await user.asave(using=self._db)
+        user.save()
+
         return user
 
-    async def create_superuser(self, email, username, password, is_organizator):
-        user = await self.create_user(
-            email=self.normalize_email(email),
+    async def acreate_user(
+        self,
+        email: str,
+        username: str,
+        is_organizator: bool,
+        password: str | None = None,
+        age: int | None = None,
+        city: str | None = None,
+        work_experience: int | None = None,
+        is_active: bool = False,
+    ) -> "Account":
+        return await sync_to_async(self.create_user)(
+            email=email,
+            username=username,
+            is_organizator=is_organizator,
+            password=password,
+            age=age,
+            city=city,
+            work_experience=work_experience,
+            is_active=is_active,
+        )
+
+    def create_superuser(
+        self, email: str, username: str, password: str, is_organizator: bool = True
+    ) -> "Account":
+        user = self.create_user(
+            email=email,
             password=password,
             username=username,
             is_organizator=is_organizator,
@@ -57,7 +71,8 @@ class MyAccountManager(BaseUserManager):
         user.is_admin = True
         user.is_staff = True
         user.is_superuser = True
-        await user.asave(using=self._db)
+        user.save()
+
         return user
 
 

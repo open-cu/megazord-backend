@@ -34,7 +34,7 @@ async def signup(
     if "," in schema.username:
         raise HttpError(422, "Username cannot contain commas.")
 
-    account = await Account.objects.create_user(
+    account = await Account.objects.acreate_user(
         email=schema.email,
         username=schema.username,
         password=schema.password,

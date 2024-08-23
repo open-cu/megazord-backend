@@ -1,6 +1,6 @@
 from django.db import IntegrityError
 from django.test import TestCase
-from ninja.testing import TestClient
+from ninja.testing import TestAsyncClient
 
 from megazord.api.auth import BadCredentials
 
@@ -10,7 +10,7 @@ from .models import Account
 
 class TestAccountsAPI(TestCase):
     def setUp(self) -> None:
-        self.api_client = TestClient(router)
+        self.api_client = TestAsyncClient(router)
 
         self.user_schema = {
             "username": "test_user",
@@ -22,35 +22,35 @@ class TestAccountsAPI(TestCase):
         }
         self.register_schema = self.user_schema | {"password": "test_password"}
 
-    def test_create_user(self) -> None:
-        response = self.api_client.post("/signup", json=self.register_schema)
+    async def test_create_user(self) -> None:
+        response = await self.api_client.post("/signup", json=self.register_schema)
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json(), self.user_schema)
 
-    def test_create_user_conflict(self) -> None:
+    async def test_create_user_conflict(self) -> None:
         with self.assertRaises(IntegrityError):
-            self.api_client.post("/signup", json=self.register_schema)
-            self.api_client.post("/signup", json=self.register_schema)
+            await self.api_client.post("/signup", json=self.register_schema)
+            await self.api_client.post("/signup", json=self.register_schema)
 
         # self.assertEqual(response.status_code, 409)
 
-    def test_login_user(self) -> None:
-        self.api_client.post("/signup", json=self.register_schema)
+    async def test_login_user(self) -> None:
+        await self.api_client.post("/signup", json=self.register_schema)
 
         # force activate user
-        user = Account.objects.get(email=self.user_schema["email"])
+        user = await Account.objects.aget(email=self.user_schema["email"])
         user.is_active = True
-        user.save()
+        await user.asave()
 
         login_data = {"email": "test_user@corp.ru", "password": "test_password"}
-        response = self.api_client.post("/signin", json=login_data)
+        response = await self.api_client.post("/signin", json=login_data)
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("token", response.json())
 
-    def test_wrong_login_data_user(self) -> None:
+    async def test_wrong_login_data_user(self) -> None:
         login_data = {"email": "test_user@corp.ru", "password": "test_password"}
 
         with self.assertRaises(BadCredentials):
-            self.api_client.post("/signin", json=login_data)
+            await self.api_client.post("/signin", json=login_data)
