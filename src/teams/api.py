@@ -59,20 +59,29 @@ async def create_team(
     path="/accept_application", response={200: StatusSchema, ERROR_CODES: ErrorSchema}
 )
 async def accept_application(request: APIRequest, app_id: uuid.UUID):
-    application = await aget_object_or_404(Apply, id=app_id)
-    team = await Team.objects.aget(application=application)
+    apply = await aget_object_or_404(
+        Apply.objects.select_related("who_responsed"), id=app_id
+    )
+    team = await Team.objects.aget(applies=apply)
 
-    if await team.team_members.acontains(application.who_responsed):
+    if await team.team_members.acontains(apply.who_responsed):
         return 400, ErrorSchema(detail="User already in this team")
 
     total_team_participants = await team.team_members.acount()
-    hackathon = await Hackathon.objects.aget(teams=team)
+    hackathon = await Hackathon.objects.aget(team=team)
 
     if total_team_participants >= hackathon.max_participants:
         return 400, ErrorSchema(detail="Team is full")
 
-    await application.adelete()
-    await team.team_members.aadd(application.who_responsed)
+    await apply.adelete()
+    await team.team_members.aadd(apply.who_responsed)
+
+    await send_notification(
+        users=apply.who_responsed,
+        context={"team": team},
+        mail_template="teams/mail/apply_accepted.html",
+        telegram_template="teams/telegram/apply_accepted.html",
+    )
 
     return 200, StatusSchema()
 
@@ -367,7 +376,7 @@ async def apply_for_job(request: APIRequest, vac_id: uuid.UUID):
     user = request.user
 
     vacancy = await aget_object_or_404(Vacancy, id=vac_id)
-    team = await Team.objects.aget(vacancies=vacancy)
+    team = await Team.objects.select_related("creator").aget(vacancies=vacancy)
     if await team.team_members.acontains(user):
         return 400, ErrorSchema(detail="You are already in this team")
 
@@ -379,7 +388,7 @@ async def apply_for_job(request: APIRequest, vac_id: uuid.UUID):
             detail="You cant join this team because it reached max participants"
         )
 
-    await Apply.objects.acreate(vac=vacancy, team=vacancy.team, who_responsed=user)
+    await Apply.objects.acreate(vac=vacancy, team=team, who_responsed=user)
 
     await send_notification(
         users=team.creator,

@@ -41,9 +41,9 @@ class TeamSchema(Schema):
 
 class ApplySchema(Schema):
     app_id: uuid.UUID = Field(alias="id")
-    team: uuid.UUID = Field(alias="team.id")
-    vac: uuid.UUID = Field(alias="vacancy.id")
-    who_responsed: uuid.UUID = Field(alias="who_responsed.id")
+    team: uuid.UUID = Field(alias="team_id")
+    vac: uuid.UUID = Field(alias="vacancy_id")
+    who_responsed: uuid.UUID = Field(alias="who_response_id")
 
 
 class VacancySchema(Schema):

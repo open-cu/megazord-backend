@@ -38,7 +38,7 @@ class Apply(models.Model):
     async def to_entity(self) -> ApplyEntity:
         return ApplyEntity(
             id=self.id,
-            team=await self.team.to_entity(),
-            vacancy=await self.vac.to_entity(),
-            who_responsed=await self.who_responsed.to_entity(),
+            team_id=str(self.team_id),
+            vacancy_id=str(self.vac_id),
+            who_response_id=str(self.who_responsed_id),
         )

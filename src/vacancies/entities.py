@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-from accounts.entities import AccountEntity
 from teams.entities import TeamEntity
 
 
@@ -15,6 +14,6 @@ class VacancyEntity:
 @dataclass
 class ApplyEntity:
     id: str
-    team: TeamEntity
-    vacancy: VacancyEntity
-    who_responsed: AccountEntity
+    team_id: str
+    vacancy_id: str
+    who_response_id: str
