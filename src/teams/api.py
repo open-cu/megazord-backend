@@ -372,7 +372,7 @@ async def apply_for_job(request: APIRequest, vac_id: uuid.UUID):
         return 400, ErrorSchema(detail="You are already in this team")
 
     total_team_participants = await team.team_members.acount()
-    hackathon = await Hackathon.objects.aget(teams=team)
+    hackathon = await Hackathon.objects.aget(team=team)
 
     if total_team_participants >= hackathon.max_participants:
         return 400, ErrorSchema(
