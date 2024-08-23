@@ -82,17 +82,19 @@ class Account(AbstractBaseUser):
     )
     email = models.EmailField(verbose_name="email", max_length=60, unique=True)
     username = models.CharField(max_length=30)
-    age = models.IntegerField(blank=True, null=True)
-    city = models.CharField(max_length=100, blank=True, default="")
-    work_experience = models.IntegerField(blank=True, null=True)
     is_organizator = models.BooleanField(blank=False)
     date_joined = models.DateTimeField(verbose_name="date joined", auto_now_add=True)
     last_login = models.DateTimeField(verbose_name="last login", auto_now=True)
+
+    age = models.IntegerField(null=True, default=None)
+    city = models.CharField(max_length=100, null=True, default=None)
+    work_experience = models.IntegerField(null=True, default=None)
+    telegram_id = models.IntegerField(null=True, default=None)
+
     is_admin = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
-    telegram_id = models.IntegerField(blank=True, null=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username", "is_organizator"]
