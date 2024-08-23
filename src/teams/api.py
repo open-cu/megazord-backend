@@ -302,8 +302,8 @@ async def get_suggest_users_for_specific_vacancy(
     request: APIRequest, vacansion_id: uuid.UUID
 ):
     vacancy = await aget_object_or_404(Vacancy, id=vacansion_id)
-    keywords = {keyword.text.lower() async for keyword in vacancy.keywords}
-    hackathon = await Hackathon.objects.aget(team_id=vacancy.team_id)
+    keywords = {keyword.text.lower() async for keyword in vacancy.keywords.all()}
+    hackathon = await Hackathon.objects.aget(team__id=vacancy.team_id)
 
     participants_without_team = hackathon.participants.exclude(
         team_members__hackathon=hackathon
