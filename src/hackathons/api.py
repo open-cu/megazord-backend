@@ -2,25 +2,30 @@ import logging
 import uuid
 from typing import Annotated, Any
 
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import aget_object_or_404
 from ninja import File, Query, Router, UploadedFile
 
 from accounts.models import Email
+from hackathons.models import NotificationStatus
 from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema, StatusSchema
+from profiles.schemas import ProfileSchema
 from teams.models import Team
 from teams.schemas import EmailSchema, TeamSchema
 from utils.notification import send_notification
 
 from .models import Hackathon, Role
 from .schemas import (
+    AnalyticsSchema,
     EmailsSchema,
     HackathonCreateSchema,
     HackathonEditSchema,
     HackathonSchema,
+    HackathonSummarySchema,
+    NotificationStatusSchema,
 )
 from .services import get_emails_from_csv, make_csv
 
@@ -382,10 +387,148 @@ async def end_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
     await hackathon.asave()
 
     await send_notification(
-        users=hackathon.participants.all(),
+        emails=hackathon.emails.all(),
         context={"hackathon": hackathon},
         mail_template="hackathons/telegram/hackathon_ended.html",
         telegram_template="hackathons/telegram/hackathon_ended.html",
     )
 
     return 200, StatusSchema()
+
+
+@hackathon_router.get(
+    path="{hackathon_id}/analytic",
+    response={200: AnalyticsSchema, ERROR_CODES: ErrorSchema},
+)
+async def analytics(
+    request: APIRequest, hackathon_id: uuid.UUID
+) -> tuple[int, AnalyticsSchema | ErrorSchema]:
+    hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
+    if hackathon.creator_id != request.user.id:
+        return 403, ErrorSchema(detail="You are not the creator")
+
+    hackathon_participants_count = await hackathon.participants.acount()
+    users_with_team_count = await Team.team_members.through.objects.filter(
+        team__hackathon=hackathon
+    ).acount()
+
+    if not hackathon_participants_count:
+        return 200, AnalyticsSchema(procent=100)
+
+    procent = (users_with_team_count / hackathon_participants_count) * 100
+
+    return 200, AnalyticsSchema(procent=procent)
+
+
+@hackathon_router.get(
+    path="/{hackathon_id}/summary",
+    response={200: HackathonSummarySchema, ERROR_CODES: ErrorSchema},
+)
+async def hackathon_summary(request: APIRequest, hackathon_id: uuid.UUID):
+    hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
+    if hackathon.creator_id != request.user.id:
+        return 403, ErrorSchema(detail="You are not the creator")
+
+    # Общее количество команд
+    total_teams = await Team.objects.filter(hackathon=hackathon).acount()
+
+    # Количество команд с максимальным количеством участников (полные команды)
+    full_teams = await (
+        Team.objects.filter(hackathon=hackathon)
+        .annotate(num_members=Count("team_members"))
+        .filter(num_members=hackathon.max_participants)
+        .acount()
+    )
+
+    # Процент полных команд
+    percent_full_teams = (full_teams / total_teams) * 100 if total_teams > 0 else 0
+
+    # Список людей без команд
+    people_without_teams = hackathon.participants.exclude(
+        team_members__hackathon=hackathon
+    )
+
+    # Количество людей в командах из тех, кто зарегистрировался
+    people_in_teams = await (
+        Team.objects.filter(hackathon=hackathon)
+        .values_list("team_members", flat=True)
+        .distinct()
+        .acount()
+    )
+
+    # Количество приглашенных людей (по количеству emails в хакатоне)
+    invited_people = await hackathon.emails.acount()
+
+    # Количество людей, принявших приглашение (по количеству участников)
+    accepted_invite = await hackathon.participants.acount()
+
+    return HackathonSummarySchema(
+        total_teams=total_teams,
+        full_teams=full_teams,
+        percent_full_teams=percent_full_teams,
+        people_without_teams=[
+            await user.to_entity() async for user in people_without_teams
+        ],
+        people_in_teams=people_in_teams,
+        invited_people=invited_people,
+        accepted_invite=accepted_invite,
+    )
+
+
+@hackathon_router.get(
+    path="/{hackathon_id}/participants_without_team",
+    response={200: list[ProfileSchema], ERROR_CODES: ErrorSchema},
+)
+async def get_participants_without_team(request: APIRequest, hackathon_id: uuid.UUID):
+    # Получаем хакатон по id
+    hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
+    if hackathon.creator_id != request.user.id:
+        return 403, ErrorSchema(detail="You are not the creator")
+
+    # Вычисляем участников, которые не входят в команды
+    participants_without_team = hackathon.participants.exclude(
+        team_members__hackathon=hackathon
+    )
+
+    # Возвращаем список участников без команды с именем, ролью и id
+    return 200, [
+        await participant.to_entity() async for participant in participants_without_team
+    ]
+
+
+@hackathon_router.get(
+    path="/{hackathon_id}/pending_invitations",
+    response={200: list[NotificationStatusSchema], ERROR_CODES: ErrorSchema},
+)
+async def pending_invitations(request: APIRequest, hackathon_id: uuid.UUID):
+    # Получаем хакатон по id
+    hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
+    if hackathon.creator_id != request.user.id:
+        return 403, ErrorSchema(detail="You are not the creator")
+
+    pending_emails = hackathon.emails.exclude(
+        email__in=hackathon.participants.values_list("email", flat=True)
+    )
+
+    result = []
+    async for pending_email in pending_emails:
+        notification_status = await NotificationStatus.objects.filter(
+            email=pending_email.email
+        ).afirst()
+
+        if notification_status is not None:
+            send_tg_status = notification_status.telegram_sent
+            send_email_status = notification_status.email_sent
+        else:
+            send_tg_status = True
+            send_email_status = True
+
+        result.append(
+            NotificationStatusSchema(
+                email=pending_email.email,
+                send_tg_status=send_tg_status,
+                send_email_status=send_email_status,
+            )
+        )
+
+    return 200, result

@@ -1,6 +1,9 @@
+import asyncio
 import logging
+from smtplib import SMTPException
 from typing import Any, Sequence
 
+from aiolimiter import AsyncLimiter
 from asgiref.sync import sync_to_async
 from django.core.mail.backends.base import BaseEmailBackend
 from django.db.models import QuerySet
@@ -9,9 +12,12 @@ from httpx import AsyncClient
 from mail_templated import send_mail as send_mail_sync
 
 from accounts.models import Account, Email
+from hackathons.models import NotificationStatus
 from megazord.settings import FRONTEND_URL, TELEGRAM_BOT_TOKEN
 
 logger = logging.getLogger(__name__)
+
+limiter = AsyncLimiter(max_rate=30, time_period=1.0)
 
 type Recipient[T] = Sequence[T] | QuerySet[T] | T
 
@@ -37,6 +43,11 @@ async def send_notification(
     context.update({"current_user": None, "frontend_url": FRONTEND_URL})
 
     if users is not None:
+        if isinstance(users, QuerySet):
+            users = [user async for user in users]
+        elif isinstance(users, Account):
+            users = [users]
+
         await send_notification_by_user(
             users=users,
             context=context,
@@ -45,6 +56,11 @@ async def send_notification(
         )
 
     if emails is not None:
+        if isinstance(emails, QuerySet):
+            emails = [email async for email in emails]
+        elif isinstance(emails, Email):
+            emails = [emails]
+
         await send_notification_by_email(
             emails=emails,
             context=context,
@@ -54,17 +70,14 @@ async def send_notification(
 
 
 async def send_notification_by_email(
-    emails: Recipient[Email],
+    emails: list[Email],
     context: dict[str, Any],
     mail_template: str | None = None,
     telegram_template: str | None = None,
 ):
-    if isinstance(emails, QuerySet):
-        emails = [email async for email in emails]
-    elif isinstance(emails, Email):
-        emails = [emails]
-
     for email in emails:
+        email_sent = True
+        telegram_sent = True
         try:
             user = await Account.objects.aget(email=email)
             context["current_user"] = user
@@ -72,7 +85,7 @@ async def send_notification_by_email(
             user = None
 
         if mail_template is not None:
-            await send_email(
+            email_sent = await send_email(
                 template_name=mail_template,
                 context=context,
                 recipient_list=[email.email],
@@ -81,45 +94,49 @@ async def send_notification_by_email(
         if (
             telegram_template is not None
             and user is not None
-            and user.email is not None
+            and user.telegram_id is not None
         ):
-            await send_telegram_message(
+            telegram_sent = await send_telegram_message(
                 template_name=telegram_template,
                 context=context,
                 chat_id=user.telegram_id,
             )
 
+        await process_notification_status(
+            email=email.email, email_sent=email_sent, telegram_sent=telegram_sent
+        )
+
 
 async def send_notification_by_user(
-    users: Recipient[Account],
+    users: list[Account],
     context: dict[str, Any],
     mail_template: str | None = None,
     telegram_template: str | None = None,
 ):
-    if isinstance(users, QuerySet):
-        users = [user async for user in users]
-    elif isinstance(users, Account):
-        users = [users]
-
     for user in users:
         context["current_user"] = user
+        email_sent = True
+        telegram_sent = True
 
         if mail_template is not None:
-            await send_email(
+            email_sent = await send_email(
                 template_name=mail_template,
                 context=context,
                 recipient_list=[user.email],
             )
 
         if telegram_template is not None and user.telegram_id is not None:
-            await send_telegram_message(
+            telegram_sent = await send_telegram_message(
                 template_name=telegram_template,
                 context=context,
                 chat_id=user.telegram_id,
             )
 
+        await process_notification_status(
+            email=user.email, email_sent=email_sent, telegram_sent=telegram_sent
+        )
 
-# @shared_task
+
 async def send_email(
     template_name: str,
     context: dict[str, Any],
@@ -129,19 +146,24 @@ async def send_email(
     auth_user: str | None = None,
     auth_password: str | None = None,
     connection: BaseEmailBackend | None = None,
-) -> None:
+) -> bool:
     logger.info(f"Sending email to `{recipient_list}`")
 
-    await sync_to_async(send_mail_sync)(
-        template_name=template_name,
-        context=context,
-        from_email=from_email,
-        recipient_list=recipient_list,
-        fail_silently=fail_silently,
-        auth_user=auth_user,
-        auth_password=auth_password,
-        connection=connection,
-    )
+    try:
+        await sync_to_async(send_mail_sync)(
+            template_name=template_name,
+            context=context,
+            from_email=from_email,
+            recipient_list=recipient_list,
+            fail_silently=fail_silently,
+            auth_user=auth_user,
+            auth_password=auth_password,
+            connection=connection,
+        )
+    except SMTPException as exc:
+        logger.error(f"Failed sent email to `{recipient_list}`: {exc}")
+        return False
+    return True
 
 
 async def send_telegram_message(
@@ -154,10 +176,31 @@ async def send_telegram_message(
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {"chat_id": chat_id, "text": message_text, "parse_mode": "HTML"}
 
-    async with AsyncClient() as client:
-        response = await client.post(url=url, json=payload)
-        if response.status_code != 200:
-            logger.error(f"An error was occurred: {response.text}")
-            return False
+    async with limiter:
+        async with AsyncClient() as client:
+            response = await client.post(url=url, json=payload)
+            if response.status_code == 200:
+                logger.info(f"Message sent successfully to `{chat_id}`")
+                return True
+            elif response.status_code == 429:
+                retry_after = int(response.headers.get("Retry-After", 1))
+                logger.warning(
+                    f"Too many requests. Retrying after {retry_after} seconds."
+                )
+                await asyncio.sleep(retry_after)
+            else:
+                logger.error(f"Failed sent telegram message to `{chat_id}")
+                return False
 
     return True
+
+
+async def process_notification_status(
+    email: str, email_sent: bool, telegram_sent: bool
+) -> None:
+    await NotificationStatus.objects.filter(email=email).adelete()
+
+    if not email_sent or not telegram_sent:
+        await NotificationStatus.objects.acreate(
+            email=email, email_sent=email_sent, telegram_sent=telegram_sent
+        )

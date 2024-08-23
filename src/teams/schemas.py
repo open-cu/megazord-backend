@@ -6,10 +6,6 @@ from pydantic import BaseModel, ConfigDict
 from profiles.schemas import ProfileSchema
 
 
-class AnalyticsSchema(Schema):
-    procent: float
-
-
 class EmailSchema(Schema):
     email: str
 

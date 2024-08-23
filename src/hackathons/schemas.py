@@ -57,3 +57,13 @@ class EmailSchema(Schema):
 
 class EmailsSchema(Schema):
     emails: list[EmailStr]
+
+
+class AnalyticsSchema(Schema):
+    procent: float
+
+
+class NotificationStatusSchema(Schema):
+    email: str
+    send_tg_status: bool
+    send_email_status: bool
