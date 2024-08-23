@@ -37,7 +37,7 @@ DEBUG = env.bool("DJANGO_DEBUG", False)
 ALLOWED_HOSTS = ["*"]
 CORS_ALLOW_ALL_ORIGINS = True
 
-FRONTEND_URL = env.str("DOMAIN", default="http://localhost:3000")
+FRONTEND_URL = env.str("FRONTEND_URL", default="http://localhost:3000")
 
 # Application definition
 
@@ -51,12 +51,10 @@ INSTALLED_APPS = [
     "mail_templated",
     "corsheaders",
     "hackathons",
-    "projects",
     "resumes",
     "teams",
     "accounts",
     "vacancies",
-    "mini_interviews",
 ]
 
 AUTH_USER_MODEL = "accounts.Account"
@@ -91,6 +89,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "megazord.wsgi.application"
+
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
@@ -164,3 +163,4 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CONFIRMATION_CODE_TTL = env.int("CONFIRMATION_CODE_TTL", default=2)
 
 TELEGRAM_BOT_TOKEN = env.str("TELEGRAM_BOT_TOKEN", default="228")
+TELEGRAM_BOT_USERNAME = env.str("TELEGRAM_BOT_USERNAME", default="FindYourMate_bot")

@@ -1,7 +1,7 @@
 import uuid
 
-from django.core.exceptions import ObjectDoesNotExist
-from ninja import Field, ModelSchema, Schema
+from ninja import ModelSchema, Schema
+from pydantic import Field
 
 from resumes.models import Resume
 
@@ -21,31 +21,19 @@ class ResumeUpdateSchema(ResumeCreateSchema):
         fields_optional = "__all__"
 
 
-class ResumeSchema(ModelSchema):
-    hackathon_id: uuid.UUID = Field(alias="hackathon.id")
+class ResumeSchema(Schema):
+    id: uuid.UUID
+    hackathon_id: uuid.UUID
+    user_id: uuid.UUID
+    bio: str
+    personal_website: str | None
+    github: str | None
+    hh: str | None
+    telegram: str | None
+
     role: str | None
-    tech: list[str] = []
-    soft: list[str] = []
-
-    @staticmethod
-    def resolve_tech(obj: Resume) -> list[str]:
-        return [skill.tag_text for skill in obj.hard_skills.all()]
-
-    @staticmethod
-    def resolve_soft(obj: Resume) -> list[str]:
-        return [skill.tag_text for skill in obj.soft_skills.all()]
-
-    @staticmethod
-    def resolve_role(obj: Resume) -> str | None:
-        try:
-            role = obj.hackathon.roles.get(users=obj.user).name
-        except ObjectDoesNotExist:
-            role = None
-        return role
-
-    class Meta:
-        model = Resume
-        fields = ["id", "bio", "personal_website", "github", "hh", "telegram"]
+    tech: list[str] = Field(alias="hard_skills")
+    soft: list[str] = Field(alias="soft_skills")
 
 
 class LinkSchema(Schema):

@@ -32,7 +32,9 @@ class Migration(migrations.Migration):
                 (
                     "team",
                     models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE, to="teams.team"
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="teams.team",
+                        related_name="vacancies",
                     ),
                 ),
             ],
@@ -55,6 +57,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         to="vacancies.vacancy",
+                        related_name="keywords",
                     ),
                 ),
             ],
@@ -74,7 +77,9 @@ class Migration(migrations.Migration):
                 (
                     "team",
                     models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE, to="teams.team"
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="teams.team",
+                        related_name="applies",
                     ),
                 ),
                 (

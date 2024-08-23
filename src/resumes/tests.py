@@ -1,6 +1,6 @@
 from django.db import IntegrityError
 from django.test import TestCase
-from ninja.testing import TestClient
+from ninja.testing import TestAsyncClient
 
 from accounts.models import Account
 from hackathons.models import Hackathon
@@ -9,7 +9,7 @@ from resumes.api import router
 
 class TestResumesAPI(TestCase):
     def setUp(self) -> None:
-        self.api_client = TestClient(router)
+        self.api_client = TestAsyncClient(router)
 
         self.user = Account.objects.create_user(
             email="test@example.org",
@@ -24,7 +24,7 @@ class TestResumesAPI(TestCase):
             status=Hackathon.Status.STARTED,
         )
 
-        self.resume_schema = {
+        self.create_resume_schema = {
             "bio": "test",
             "hackathon_id": str(self.hackathon.id),
             "tech": ["tech1", "tech2"],
@@ -33,49 +33,48 @@ class TestResumesAPI(TestCase):
             "hh": "test_hhru",
             "telegram": "tg",
             "personal_website": "test_website",
+        }
+        self.resume_schema = self.create_resume_schema | {
             "role": None,
+            "user_id": str(self.user.id),
         }
 
-    def test_resume_create(self) -> None:
-        response = self.api_client.post(
+    async def test_resume_create(self) -> None:
+        response = await self.api_client.post(
             path="/create/custom", json=self.resume_schema, user=self.user
         )
 
         self.assertEqual(response.status_code, 201)
         response_data = response.json()
+
         del response_data["id"]
-
-        response_data["hackathon_id"] = str(response_data["hackathon_id"])
-
         self.assertEqual(response_data, self.resume_schema)
 
-    def test_resume_duplicate(self) -> None:
-        self.api_client.post(
+    async def test_resume_duplicate(self) -> None:
+        await self.api_client.post(
             path="/create/custom", json=self.resume_schema, user=self.user
         )
         with self.assertRaises(IntegrityError):
-            self.api_client.post(
+            await self.api_client.post(
                 path="/create/custom", json=self.resume_schema, user=self.user
             )
 
-    def test_resume_get(self) -> None:
-        self.api_client.post(
+    async def test_resume_get(self) -> None:
+        await self.api_client.post(
             path="/create/custom", json=self.resume_schema, user=self.user
         )
-        response = self.api_client.get(
+        response = await self.api_client.get(
             path=f"/get?user_id={self.user.id}&hackathon_id={self.hackathon.id}",
             user=self.user,
         )
         self.assertEqual(response.status_code, 200)
         response_data = response.json()
+
         del response_data["id"]
-
-        response_data["hackathon_id"] = str(response_data["hackathon_id"])
-
         self.assertEqual(response_data, self.resume_schema)
 
-    def test_resume_edit(self) -> None:
-        self.api_client.post(
+    async def test_resume_edit(self) -> None:
+        await self.api_client.post(
             path="/create/custom", json=self.resume_schema, user=self.user
         )
 
@@ -84,12 +83,12 @@ class TestResumesAPI(TestCase):
         new_resume["tech"] = ["123"]
         new_resume["soft"] = ["123"]
 
-        response = self.api_client.patch(path="/edit", json=new_resume, user=self.user)
+        response = await self.api_client.patch(
+            path="/edit", json=new_resume, user=self.user
+        )
 
         self.assertEqual(response.status_code, 200)
         response_data = response.json()
+
         del response_data["id"]
-
-        response_data["hackathon_id"] = str(response_data["hackathon_id"])
-
         self.assertEqual(response_data, new_resume)

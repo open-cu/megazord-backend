@@ -1,674 +1,422 @@
-import logging
 import uuid
-from collections import Counter
 from datetime import datetime
-from typing import Any, List
 
 import jwt
-from django.db.models import Count
-from django.shortcuts import get_object_or_404
-from mail_templated import send_mail
+from django.shortcuts import aget_object_or_404
 from ninja import Router
 
 from accounts.models import Account
 from hackathons.models import Hackathon
 from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
-from megazord.schemas import ErrorSchema
+from megazord.schemas import ErrorSchema, StatusSchema
 from megazord.settings import FRONTEND_URL, SECRET_KEY
-from resumes.models import HardSkillTag, Resume, SoftSkillTag
-from utils.telegram import send_telegram_message
+from resumes.models import Resume
+from utils.notification import send_notification
+from vacancies.entities import VacancyEntity
 from vacancies.models import Apply, Keyword, Vacancy
 
+from .entities import TeamEntity
 from .models import Team, Token
 from .schemas import (
-    AddUserToTeam,
-    AnalyticsDiffSchema,
-    AnalyticsSchema,
-    ApplierSchema,
-    Error,
-    ParticipantOut,
-    SkillsAnalytics,
-    Successful,
-    TeamById,
-    TeamIn,
+    ApplySchema,
+    EmailSchema,
+    TeamCreateSchema,
     TeamSchema,
-    TeamSchemaOut,
-    UserSuggesionForVacansionSchema,
-    VacancySchemaOut,
-    VacansionSuggesionForUserSchema,
+    TeamUpdateSchema,
+    UsersSuggestionForVacancySchema,
+    VacancySchema,
+    VacancySuggestionForUserSchema,
 )
-
-logger = logging.getLogger(__name__)
 
 team_router = Router()
 
 
-@team_router.post(path="/create", response={201: TeamSchemaOut})
-def create_team(request: APIRequest, hackathon_id: uuid.UUID, body: TeamIn):
+@team_router.post(path="/create", response={201: TeamSchema, ERROR_CODES: ErrorSchema})
+async def create_team(
+    request: APIRequest, hackathon_id: uuid.UUID, create_schema: TeamCreateSchema
+) -> tuple[int, TeamEntity]:
     user = request.user
-    body_dict = body.dict()
-    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
-    team = Team.objects.create(
-        hackathon=hackathon, name=body_dict["name"], creator=user
+    hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
+    team = await Team.objects.acreate(
+        hackathon=hackathon, name=create_schema.name, creator=user
     )
-    team.team_members.add(user)
-    team.save()
+    await team.team_members.aadd(user)
 
-    for v in body_dict["vacancies"]:
-        vacancy = Vacancy(team=team, name=v["name"])
-        vacancy.save()
-        for kw in v["keywords"]:
-            Keyword.objects.create(vacancy=vacancy, text=kw)
-    vacancies = Vacancy.objects.filter(team=team).all()
-    vacancies_l = []
-    for v in vacancies:
-        keywords = Keyword.objects.filter(vacancy=v).all()
-        keywords_l = [k.text for k in keywords]
-        vacancies_l.append({"id": v.id, "name": v.name, "keywords": keywords_l})
-    team_return = {"id": team.id, "name": team.name, "vacancies": vacancies_l}
-    return 201, team_return
+    for vacancy_schema in create_schema.vacancies:
+        vacancy = await Vacancy.objects.acreate(team=team, name=vacancy_schema.name)
+        for kw in vacancy_schema.keywords:
+            await Keyword.objects.acreate(vacancy=vacancy, text=kw)
+
+    return 201, await team.to_entity()
 
 
-@team_router.delete("/delete", response={201: Successful, 400: Error, 401: Error})
-def delete_team(request: APIRequest, id: uuid.UUID):
-    user = request.user
-    team = get_object_or_404(Team, id=id)
-    if team.creator == user:
-        team.delete()
-        return 201, {"success": "ok"}
-    else:
-        return 400, {"details": "You cant delete team where you are not owner"}
+@team_router.post(
+    path="/accept_application", response={200: StatusSchema, ERROR_CODES: ErrorSchema}
+)
+async def accept_application(request: APIRequest, app_id: uuid.UUID):
+    apply = await aget_object_or_404(
+        Apply.objects.select_related("who_responsed"), id=app_id
+    )
+    team = await Team.objects.aget(applies=apply)
+
+    if await team.team_members.acontains(apply.who_responsed):
+        return 400, ErrorSchema(detail="User already in this team")
+
+    total_team_participants = await team.team_members.acount()
+    hackathon = await Hackathon.objects.aget(team=team)
+
+    if total_team_participants >= hackathon.max_participants:
+        return 400, ErrorSchema(detail="Team is full")
+
+    await team.applies.filter(
+        who_responsed=apply.who_responsed
+    ).adelete()  # delete all user applies for this team
+    await team.team_members.aadd(apply.who_responsed)
+
+    await send_notification(
+        users=apply.who_responsed,
+        context={"team": team},
+        mail_template="teams/mail/apply_accepted.html",
+        telegram_template="teams/telegram/apply_accepted.html",
+    )
+
+    return 200, StatusSchema()
 
 
-@team_router.post("/accept_application", response={200: Successful, 400: Error})
-def accept_application(request: APIRequest, app_id: uuid.UUID):
-    application = get_object_or_404(Apply, id=app_id)
-    if (
-        len(application.team.team_members.all())
-        < application.team.hackathon.max_participants
-    ):
-        for team in Team.objects.filter(hackathon=application.team.hackathon).all():
-            if application.who_responsed in team.team_members.all():
-                return 400, {"details": "you are already in team"}
-        application.team.team_members.add(application.who_responsed)
-        application.team.save()
-        application.delete()
-        return 200, {"success": "ok"}
-    else:
-        return 400, {"details": "team is full"}
+@team_router.post(
+    path="/decline_application", response={200: StatusSchema, ERROR_CODES: ErrorSchema}
+)
+async def decline_application(request: APIRequest, app_id: uuid.UUID):
+    application = await aget_object_or_404(Apply, id=app_id)
+    await application.adelete()
 
-
-@team_router.post("/decline_application", response={200: Successful})
-def decline_application(request: APIRequest, app_id: uuid.UUID):
-    application = get_object_or_404(Apply, id=app_id)
-    application.delete()
-    return 200, {"success": "ok"}
+    return 200, StatusSchema()
 
 
 @team_router.post(
     path="/{team_id}/add_user",
-    response={201: TeamSchema, 401: Error, 404: Error, 403: Error, 400: Error},
+    response={201: StatusSchema, ERROR_CODES: ErrorSchema},
 )
-def add_user_to_team(
-    request: APIRequest, team_id: uuid.UUID, email_schema: AddUserToTeam
+async def add_user_to_team(
+    request: APIRequest, team_id: uuid.UUID, email_schema: EmailSchema
 ):
-    me = request.user
-    team = get_object_or_404(Team, id=team_id)
-    try:
-        user_to_add = Account.objects.get(email=email_schema.email)
-    except Account.DoesNotExist:
-        user_to_add = None
+    user = request.user
 
-    if team.creator == me:
-        if user_to_add and team.creator == user_to_add:
-            return 400, {"details": "user is creator team"}
-
-        encoded_jwt = jwt.encode(
-            {
-                "createdAt": datetime.utcnow().timestamp(),
-                "id": team.id,
-                "hackathon_id": team.hackathon.id,
-                "email": email_schema.email,
-            },
-            SECRET_KEY,
-            algorithm="HS256",
+    team = await aget_object_or_404(Team.objects.select_related("creator"), id=team_id)
+    if team.creator != user:
+        return 403, ErrorSchema(
+            detail="You are not creator and you can not edit this hackathon"
         )
 
-        try:
-            Token.objects.create(token=encoded_jwt, is_active=True)
-            send_mail(
-                template_name="teams/invitation_to_team.html",
-                context={
-                    "team": team,
-                    "invite_code": encoded_jwt,
-                    "frontend_url": FRONTEND_URL,
-                },
-                from_email="",
-                recipient_list=[email_schema.email],
-            )
+    user_to_add = await aget_object_or_404(
+        Account, email=email_schema.email, hackathons__id=team.hackathon_id
+    )
 
-            if user_to_add and user_to_add.telegram_id:
-                telegram_message = (
-                    f"👥 Приглашение в команду {team.name}!\n"
-                    f"Для принятия приглашения перейдите по ссылке: {FRONTEND_URL}/join-team?team_id={encoded_jwt}"
-                )
-                send_telegram_message(user_to_add.telegram_id, telegram_message)
+    if user_to_add == user:
+        return 400, ErrorSchema(detail="You can not add self")
 
-        except Exception as e:
-            logger.error(f"Failed to send invitation: {e}")
-            return 500, {"details": "Failed to send invitation"}
+    if await team.team_members.acontains(user_to_add):
+        return 400, ErrorSchema(detail="User already in team")
 
-        return 201, team
-    else:
-        return 403, {"details": "You are not creator and you can't edit this hackathon"}
+    encoded_jwt = jwt.encode(
+        {
+            "createdAt": datetime.now().timestamp(),
+            "id": str(team.id),
+            "email": user_to_add.email,
+        },
+        SECRET_KEY,
+        algorithm="HS256",
+    )
+    await Token.objects.acreate(token=encoded_jwt, is_active=True)
+
+    await send_notification(
+        users=user_to_add,
+        context={
+            "team": team,
+            "invite_code": encoded_jwt,
+            "frontend_url": FRONTEND_URL,
+        },
+        mail_template="teams/mail/invitation_to_team.html",
+        telegram_template="teams/telegram/invitation_to_team.html",
+    )
+
+    return 201, StatusSchema()
 
 
 @team_router.delete(
     path="/{team_id}/remove_user",
-    response={201: TeamSchema, 401: Error, 404: Error, 403: Error, 400: Error},
+    response={200: TeamSchema, ERROR_CODES: ErrorSchema},
 )
-def remove_user_from_team(
-    request: APIRequest, team_id: uuid.UUID, email_schema: AddUserToTeam
+async def remove_user_from_team(
+    request: APIRequest, team_id: uuid.UUID, email_schema: EmailSchema
 ):
-    me = request.user
-    team = get_object_or_404(Team, id=team_id)
-    user_to_remove = get_object_or_404(Account, email=email_schema.email)
+    team = await aget_object_or_404(
+        Team.objects.prefetch_related("team_members"), id=team_id
+    )
+    user_to_remove = await aget_object_or_404(
+        team.team_members, email=email_schema.email
+    )
 
-    if team.creator == me:
-        if user_to_remove != team.creator:
-            if user_to_remove in team.team_members.all():
-                team.team_members.remove(user_to_remove)
-                team.save()
+    if team.creator_id != request.user.id:
+        return 403, ErrorSchema(
+            detail="You are not creator and you can not edit this team"
+        )
 
-                send_mail(
-                    template_name="teams/user_kicked.html",
-                    context={"team": team},
-                    from_email="",
-                    recipient_list=[user_to_remove.email],
-                )
+    if user_to_remove == request.user:
+        return 400, ErrorSchema(detail="You can not remove self")
 
-                if user_to_remove.telegram_id:
-                    telegram_message = f"🚫 Вас исключили из команды {team.name}.\n"
-                    send_telegram_message(user_to_remove.telegram_id, telegram_message)
+    await team.team_members.aremove(user_to_remove)
 
-                return 201, team
-            else:
-                return 400, {"detail": "User is not a member of this team"}
-        else:
-            return 400, {"detail": "This user is the creator of the team"}
-    else:
-        return 403, {"detail": "You are not the creator and cannot edit this team"}
+    await send_notification(
+        users=user_to_remove,
+        context={"team": team},
+        mail_template="teams/mail/user_kicked.html",
+        telegram_template="teams/telegram/user_kicked.html",
+    )
+
+    return 200, await team.to_entity()
 
 
 @team_router.post(
     path="/join-team",
-    response={403: Error, 200: TeamSchema, 401: Error, 400: Error},
+    response={200: StatusSchema, ERROR_CODES: ErrorSchema},
 )
-def join_team(request: APIRequest, team_id: uuid.UUID, token: str):
+async def join_team(request: APIRequest, team_id: uuid.UUID, token: str):
     user = request.user
-    tkn = get_object_or_404(Token, token=token)
-    if not tkn.is_active:
-        return 403, {"details": "token in not active"}
-    else:
-        tkn.is_active = False
-        tkn.save()
 
-    team_inst = Team.objects.filter(id=team_id).first()
-    if len(team_inst.team_members.all()) < int(team_inst.hackathon.max_participants):
-        for team in Team.objects.filter(hackathon=team_inst.hackathon).all():
-            if user in team.team_members.all():
-                return 400, {"details": "you are already in team"}
-        team = get_object_or_404(Team, id=team_id)
-        team.team_members.add(user)
-        team.save()
-        return 200, team
-    else:
-        return 400, {"details": "team is full"}
+    tkn = await aget_object_or_404(Token, token=token)
+    if not tkn.is_active:
+        return 403, ErrorSchema(detail="token in not active")
+
+    tkn.is_active = False
+    await tkn.asave()
+
+    team = await aget_object_or_404(
+        Team.objects.select_related("hackathon"), id=team_id
+    )
+    if not await team.hackathon.participants.acontains(user):
+        return 400, ErrorSchema(detail="User not in hackathon")
+
+    if await team.team_members.acontains(user):
+        return 400, ErrorSchema(detail="User already in this team")
+
+    total_team_participants = await team.team_members.acount()
+
+    if total_team_participants >= team.hackathon.max_participants:
+        return 400, ErrorSchema(detail="Team is full")
+
+    await team.team_members.aadd(user)
+
+    return 200, StatusSchema()
 
 
 @team_router.post(
-    path="/leave-team", response={200: Successful, ERROR_CODES: ErrorSchema}
+    path="/leave-team", response={200: StatusSchema, ERROR_CODES: ErrorSchema}
 )
-def leave_team(request: APIRequest, team_id: uuid.UUID):
-    team = get_object_or_404(Team, id=team_id)
-    if request.user not in team.team_members.all():
+async def leave_team(request: APIRequest, team_id: uuid.UUID):
+    team = await aget_object_or_404(Team.objects.select_related("creator"), id=team_id)
+    if not await team.team_members.acontains(request.user):
         return 400, ErrorSchema(detail="you are not member of this team")
 
-    team.team_members.remove(request.user)
+    await team.team_members.aremove(request.user)
 
-    if team.team_members.count() == 0:
-        team.delete()
+    if await team.team_members.acount() == 0:
+        await team.adelete()
+        return 200, StatusSchema()
+
+    if team.creator == request.user:
+        team.creator = await team.team_members.afirst()
+        await team.asave()
+
+        await send_notification(
+            users=team.creator,
+            context={"team": team},
+            mail_template="teams/mail/new_team_owner.html",
+            telegram_template="teams/telegram/new_team_owner.html",
+        )
     else:
-        if team.creator == request.user:
-            team.creator = team.team_members.first()
-            team.save()
-
-            template_name = "teams/new_team_owner.html"
-            telegram_message = f"👤 Ты назначен тимлидом команды {team.name}!"
-        else:
-            template_name = "teams/user_left_team.html"
-            telegram_message = f"👤 {request.user.email} покинул команду {team.name}"
-
-        send_mail(
-            template_name=template_name,
-            context={"user": request.user, "team": team},
-            from_email="",
-            recipient_list=[team.creator.email],
+        await send_notification(
+            users=team.creator,
+            context={"who_left": request.user, "team": team},
+            mail_template="teams/mail/user_left_team.html",
+            telegram_template="teams/telegram/user_left_team.html",
         )
 
-        if team.creator.telegram_id:
-            send_telegram_message(team.creator.telegram_id, telegram_message)
-
-    return 200, Successful(success="ok")
+    return 200, StatusSchema()
 
 
 @team_router.patch(
     path="/edit_team",
-    response={200: TeamSchemaOut, 401: Error, 400: Error},
+    response={200: TeamSchema, ERROR_CODES: ErrorSchema},
 )
-def edit_team(
-    request: APIRequest, id: uuid.UUID, edited_team: TeamIn
-) -> tuple[int, dict[str, Any]]:
-    team = get_object_or_404(Team, id=id)
-    team.name = edited_team.name
-    team.save()
-    Vacancy.objects.filter(team=team).delete()
-    vacancies = []
-    for vacantion in edited_team.vacancies:
-        vac = Vacancy.objects.create(name=vacantion.name, team=team)
-        vacancies.append(
-            {"id": vac.id, "name": vac.name, "keywords": vacantion.keywords}
+async def edit_team(
+    request: APIRequest, id: uuid.UUID, update_schema: TeamUpdateSchema
+):
+    team = await aget_object_or_404(
+        Team.objects.prefetch_related("team_members"), id=id
+    )
+    if team.creator_id != request.user.id:
+        return 403, ErrorSchema(
+            detail="You are not creator and you can not edit this team"
         )
-        for keyword in vacantion.keywords:
-            Keyword.objects.create(vacancy=vac, text=keyword)
 
-    team_to_return = {"id": team.id, "name": team.name, "vacancies": vacancies}
-    return 200, team_to_return
+    if update_schema.name is not None:
+        team.name = update_schema.name
+        await team.asave()
+
+    if update_schema.vacancies is not None:
+        await team.vacancies.all().adelete()
+        for vacancy_schema in update_schema.vacancies:
+            vacancy = await Vacancy.objects.acreate(name=vacancy_schema.name, team=team)
+
+            for kw in vacancy_schema.keywords:
+                await Keyword.objects.acreate(vacancy=vacancy, text=kw)
+
+    return 200, await team.to_entity()
 
 
-@team_router.get(path="/", response={200: List[TeamSchema], 400: Error})
-def get_teams(request: APIRequest, hackathon_id: uuid.UUID) -> tuple[int, list[Team]]:
-    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
-    teams = Team.objects.filter(hackathon=hackathon).all()
+@team_router.get(path="/", response={200: list[TeamSchema], ERROR_CODES: ErrorSchema})
+async def get_teams(
+    request: APIRequest, hackathon_id: uuid.UUID
+) -> tuple[int, list[Team]]:
+    teams_query_set = Team.objects.filter(hackathon_id=hackathon_id).prefetch_related(
+        "team_members"
+    )
+    teams = [await team.to_entity() async for team in teams_query_set]
+
     return 200, teams
 
 
-@team_router.get("/team_vacancies", response={200: list[VacancySchemaOut]})
-def get_team_vacancies(
+@team_router.get(
+    path="/team_vacancies",
+    response={200: list[VacancySchema], ERROR_CODES: ErrorSchema},
+)
+async def get_team_vacancies(
     request: APIRequest, id: uuid.UUID
-) -> tuple[int, list[dict[str, Any]]]:
-    team = Team.objects.filter(id=id).first()
-    vacancies = Vacancy.objects.filter(team=team).all()
-    vacancies_list = []
-    for v in vacancies:
-        keywords = Keyword.objects.filter(vacancy=v).all()
-        keywords_l = []
-        for i in keywords:
-            keywords_l.append(i.text)
-        vacancies_list.append({"id": v.id, "name": v.name, "keywords": keywords_l})
-    return 200, vacancies_list
+) -> tuple[int, list[VacancyEntity]]:
+    team = await aget_object_or_404(Team.objects, id=id)
+    vacancies = [await vacancy.to_entity() async for vacancy in team.vacancies.all()]
+
+    return 200, vacancies
 
 
 @team_router.get(
     path="/suggest_users_for_specific_vacansion/{vacansion_id}",
-    response={200: UserSuggesionForVacansionSchema, 404: Error},
+    response={200: UsersSuggestionForVacancySchema, ERROR_CODES: ErrorSchema},
 )
-def get_suggest_users_for_specific_vacansion(
+async def get_suggest_users_for_specific_vacancy(
     request: APIRequest, vacansion_id: uuid.UUID
-) -> tuple[int, dict[str, Any]]:
-    user = request.user
-    user_id = user.id
-    keywords = Keyword.objects.filter(vacancy_id=vacansion_id).all()
-    vacancy = get_object_or_404(Vacancy, id=vacansion_id)
-    matching = {}
-    for user in vacancy.team.hackathon.participants.all():
-        if user.id == user_id:
-            continue
-        if user.is_organizator:
-            continue
-        else:
-            matched = []
-            try:
-                resume = get_object_or_404(
-                    Resume, hackathon=vacancy.team.hackathon, user_id=user.id
-                )
-            except:
-                matching[user.id] = []
-                continue
-            teams = Team.objects.filter(hackathon=vacancy.team.hackathon)
-            user_already_in_team = False
-            for team in teams:
-                if user in team.team_members.all():
-                    user_already_in_team = True
-            if user_already_in_team:
-                continue
-            softs = SoftSkillTag.objects.filter(resume=resume).all()
-            softs_text = []
-            for s in softs:
-                softs_text.append(s.tag_text.lower())
-            hards = HardSkillTag.objects.filter(resume=resume).all()
-            hards_text = []
-            for h in hards:
-                hards_text.append(h.tag_text.lower())
-            for keyword in keywords:
-                if keyword.text.lower() in softs_text:
-                    matched.append(keyword.text.lower())
-                if keyword.text.lower() in hards_text:
-                    matched.append(keyword.text.lower())
-            matching[user.id] = matched
-    raiting = sorted(
-        list(matching.items()), key=lambda x: len(list(x)[1]), reverse=True
+):
+    vacancy = await aget_object_or_404(Vacancy, id=vacansion_id)
+    keywords = {keyword.text.lower() async for keyword in vacancy.keywords.all()}
+    hackathon = await Hackathon.objects.aget(team__id=vacancy.team_id)
+
+    participants_without_team = hackathon.participants.exclude(
+        team_members__hackathon=hackathon
     )
-    result = {"users": []}
-    for i in raiting:
-        user = get_object_or_404(Account, id=(list(i)[0]))
-        bio = ""
+    matching = {}
+    async for participant in participants_without_team:
         try:
-            bio = get_object_or_404(
-                Resume, user=user, hackathon=vacancy.team.hackathon
-            ).bio
-        except:
-            pass
-        user_schema = {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "password": user.password,
-            "is_organizator": user.is_organizator,
-            "age": user.age,
-            "city": user.city,
-            "work_experience": user.work_experience,
-            "keywords": list(i)[1],
-            "bio": bio,
-        }
-        result["users"].append(user_schema)
-    return 200, result
+            resume = await Resume.objects.aget(user=participant)
+        except Resume.DoesNotExist:
+            continue
+
+        skills = set()
+        async for skill in resume.soft_skills.all():
+            skills.add(skill.tag_text.lower())
+        async for skill in resume.hard_skills.all():
+            skills.add(skill.tag_text.lower())
+
+        matching[participant] = len(skills & keywords)
+
+    rating = sorted(matching.items(), key=lambda item: item[1], reverse=True)
+    return 200, UsersSuggestionForVacancySchema(
+        users=[await user.to_entity() for user, rate in rating]
+    )
 
 
 @team_router.get(
     path="/suggest_vacansions_for_specific_user/{resume_id}",
-    response={200: VacansionSuggesionForUserSchema, 404: Error},
+    response={200: VacancySuggestionForUserSchema, ERROR_CODES: ErrorSchema},
 )
-def get_suggest_vacansions_for_specific_user(
+async def get_suggest_vacancies_for_specific_user(
     request: APIRequest, resume_id: uuid.UUID
-) -> tuple[int, dict[str, Any]]:
-    resume = get_object_or_404(Resume, id=resume_id)
-    softs = SoftSkillTag.objects.filter(resume=resume).all()
-    hards = HardSkillTag.objects.filter(resume=resume).all()
-    all_tags = []
-    for soft in softs:
-        all_tags.append(soft.tag_text.lower())
-    for hard in hards:
-        all_tags.append(hard.tag_text.lower())
-    all_teams = Team.objects.filter(hackathon=resume.hackathon)
-    vacansions_matching = {}
-    for team in all_teams:
-        for vacansion in Vacancy.objects.filter(team=team):
-            keywords = Keyword.objects.filter(vacancy=vacansion).all()
-            count = 0
-            for keyword in keywords:
-                if keyword.text.lower() in all_tags:
-                    count += 1
-            vacansions_matching[vacansion.id] = count
-    raiting = sorted(
-        list(vacansions_matching.items()), key=lambda x: list(x)[1], reverse=True
-    )
-    result = {"vacantions": []}
-    for i in raiting:
-        vac = get_object_or_404(Vacancy, id=(list(i)[0]))
-        kws = [j.text for j in Keyword.objects.filter(vacancy=vac).all()]
-        result["vacantions"].append(
-            {"id": vac.id, "name": vac.name, "keywords": kws, "team": vac.team}
-        )
-    return 200, result
+):
+    resume = await aget_object_or_404(Resume, id=resume_id)
+    teams = Team.objects.filter(hackathon_id=resume.hackathon_id)
 
+    skills = set()
+    async for soft in resume.soft_skills.all():
+        skills.add(soft.tag_text.lower())
+    async for hard in resume.hard_skills.all():
+        skills.add(hard.tag_text.lower())
 
-@team_router.post(path="/apply_for_job", response={400: Error})
-def apply_for_job(request: APIRequest, vac_id: uuid.UUID) -> tuple[int, str]:
-    vacancy = Vacancy.objects.filter(id=vac_id).first()
-    team_owner_email = vacancy.team.creator.email
-    user = request.user
-    user_id = user.id
-    if len(vacancy.team.team_members.all()) < vacancy.team.hackathon.max_participants:
-        user = get_object_or_404(Account, id=user_id)
-        Apply.objects.create(vac=vacancy, team=vacancy.team, who_responsed=user)
-        try:
-            send_mail(
-                template_name="teams/new_job_response.html",
-                context={"user": user},
-                from_email="",
-                recipient_list=[team_owner_email],
-            )
-
-            if vacancy.team.creator.telegram_id:
-                telegram_message = f"📩 {user.email} откликнулся на вакансию в команде {vacancy.team.name}"
-                send_telegram_message(
-                    vacancy.team.creator.telegram_id, telegram_message
-                )
-
-        except Exception as e:
-            print(e)
-
-    else:
-        return 400, {
-            "details": "You can't join this team because it reached max participants"
-        }
-
-
-@team_router.get(path="/get_applies_for_team", response={200: List[ApplierSchema]})
-def get_team_applies(
-    request: APIRequest, team_id: uuid.UUID
-) -> tuple[int, list[dict[str, Any]]]:
-    team = Team.objects.filter(id=team_id).first()
-    applies = Apply.objects.filter(team=team).all()
-    applies_l = []
-    for app in applies:
-        applies_l.append(
-            {
-                "app_id": app.id,
-                "team": app.team.id,
-                "vac": app.vac.id,
-                "who_responsed": app.who_responsed.id,
+    matching = {}
+    async for team in teams:
+        async for vacancy in team.vacancies.all():
+            keywords = {
+                keyword.text.lower() async for keyword in vacancy.keywords.all()
             }
-        )
-    return 200, applies_l
+            matching[vacancy] = len(keywords & skills)
 
+    rating = sorted(matching.items(), key=lambda item: item[1], reverse=True)
 
-@team_router.get(path="/{team_id}", response={200: TeamById})
-def get_team_by_id(
-    request: APIRequest, team_id: uuid.UUID
-) -> tuple[int, dict[str, Any]]:
-    team = get_object_or_404(Team, id=team_id)
-    return 200, {
-        "id": team.id,
-        "hackathon": team.hackathon.id,
-        "name": team.name,
-        "creator": team.creator.id,
-        "team_members": [
-            {"id": member.id, "email": member.email, "name": member.username}
-            for member in team.team_members.all()
-        ],
-    }
+    return 200, VacancySuggestionForUserSchema(
+        vacantions=[await vacancy.to_entity() for vacancy, rate in rating]
+    )
 
 
 @team_router.post(
-    path="/merge/{team1_id}/{team2_id}",
-    response={200: TeamSchema, 401: Error, 400: Error, 404: Error},
+    path="/apply_for_job", response={200: StatusSchema, ERROR_CODES: ErrorSchema}
 )
-def merge_teams(
-    request: APIRequest, team1_id: uuid.UUID, team2_id: uuid.UUID
-) -> tuple[int, list[Team]]:
-    team1 = get_object_or_404(Team, id=team1_id)
-    team2 = get_object_or_404(Team, id=team2_id)
-    team1.team_members.set(team1.team_members.all() | team2.team_members.all())
-    team1.save()
-    team2.delete()
-    return 200, team1
+async def apply_for_job(request: APIRequest, vac_id: uuid.UUID):
+    user = request.user
 
+    vacancy = await aget_object_or_404(Vacancy, id=vac_id)
+    team = await Team.objects.select_related("creator").aget(vacancies=vacancy)
+    if await team.team_members.acontains(user):
+        return 400, ErrorSchema(detail="You are already in this team")
 
-@team_router.get(
-    path="/analytic/{hackathon_id}", response={200: AnalyticsSchema, 404: Error}
-)
-def analytics(
-    request: APIRequest, hackathon_id: uuid.UUID
-) -> tuple[int, dict[str, Any]]:
-    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
-    users = []
-    teams = Team.objects.filter(hackathon_id=hackathon_id)
-    for team in teams:
-        for mem in team.team_members.all():
-            if mem not in users:
-                users.append(mem)
-        if team.creator not in users:
-            users.append(team.creator)
-    if len(list(hackathon.participants.all())) == 0:
-        return 200, {"procent": 100}
-    return 200, {"procent": len(users) * 100 / len(list(hackathon.participants.all()))}
+    total_team_participants = await team.team_members.acount()
+    hackathon = await Hackathon.objects.aget(team=team)
 
-
-@team_router.get(
-    path="/analytic_difficulty/{hackathon_id}",
-    response={200: AnalyticsDiffSchema, 404: Error},
-)
-def analytics_difficulty(
-    request: APIRequest, hackathon_id: uuid.UUID
-) -> tuple[int, dict[str, Any]]:
-    teams = Team.objects.filter(hackathon_id=hackathon_id)
-    count = 0
-    exp_summ = 0
-    for team in teams:
-        for mem in team.team_members.all():
-            if mem.work_experience:
-                exp_summ += mem.work_experience
-                count += 1
-    if count == 0:
-        return 200, {"average_exp": 0}
-    return 200, {"average_exp": exp_summ / count}
-
-
-# какие люди требуются в хакатон / с каким скилом вы там точно не пропадете
-@team_router.get(
-    path="/analytic_skills/{hackathon_id}", response={200: SkillsAnalytics, 404: Error}
-)
-def analytics_skills(
-    request: APIRequest, hackathon_id: uuid.UUID
-) -> tuple[int, dict[str, Any]]:
-    teams = Team.objects.filter(hackathon_id=hackathon_id).all()
-    keywords_list = []
-    for team in teams:
-        vacancies = Vacancy.objects.filter(team=team).all()
-        for v in vacancies:
-            v_keywords = Keyword.objects.filter(vacancy=v).all()
-            for k in v_keywords:
-                keywords_list.append(k.text)
-    counter = Counter(keywords_list)
-    most_common_skills = counter.most_common(3)
-
-    most_common_skills = [skill[0] for skill in most_common_skills]
-    return 200, {"skills": most_common_skills}
-
-
-@team_router.get(
-    path="/hackathon_summary/{hackathon_id}",
-    response={200: dict},
-)
-def hackathon_summary(request: APIRequest, hackathon_id: uuid.UUID) -> dict:
-    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
-
-    # Общее количество команд
-    total_teams = Team.objects.filter(hackathon=hackathon).count()
-
-    # Количество команд с максимальным количеством участников (полные команды)
-    max_participants = hackathon.max_participants
-    full_teams = (
-        Team.objects.filter(hackathon=hackathon)
-        .annotate(num_members=Count("team_members"))
-        .filter(num_members=max_participants)
-        .count()
-    )
-
-    # Процент полных команд
-    percent_full_teams = (full_teams / total_teams) * 100 if total_teams > 0 else 0
-
-    # Список людей без команд
-    participants = hackathon.participants.all()
-    people_without_teams = participants.exclude(
-        id__in=Team.objects.filter(hackathon=hackathon).values_list(
-            "team_members", flat=True
+    if total_team_participants >= hackathon.max_participants:
+        return 400, ErrorSchema(
+            detail="You cant join this team because it reached max participants"
         )
+
+    await Apply.objects.acreate(vac=vacancy, team=team, who_responsed=user)
+
+    await send_notification(
+        users=team.creator,
+        context={"who_response": user, "team": team, "vacancy": vacancy},
+        mail_template="teams/mail/new_job_response.html",
+        telegram_template="teams/telegram/new_job_response.html",
     )
 
-    # Количество людей в командах из тех, кто зарегистрировался
-    people_in_teams = (
-        Team.objects.filter(hackathon=hackathon)
-        .values_list("team_members", flat=True)
-        .distinct()
-        .count()
-    )
-
-    # Количество приглашенных людей (по количеству emails в хакатоне)
-    invited_people = hackathon.emails.count()
-
-    # Количество людей, принявших приглашение (по количеству участников)
-    accepted_invite = hackathon.accepted_invite
-
-    return {
-        "total_teams": total_teams,
-        "full_teams": full_teams,
-        "percent_full_teams": percent_full_teams,
-        "people_without_teams": list(
-            people_without_teams.values("id", "email", "username")
-        ),
-        "people_in_teams": people_in_teams,
-        "invited_people": invited_people,
-        "accepted_invite": accepted_invite,
-    }
+    return 200, StatusSchema()
 
 
 @team_router.get(
-    "/hackathon/{hackathon_id}/participants_without_team", response=List[ParticipantOut]
+    path="/get_applies_for_team",
+    response={200: list[ApplySchema], ERROR_CODES: ErrorSchema},
 )
-def participants_without_team(request, hackathon_id: uuid.UUID):
-    # Получаем хакатон по id
-    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
+async def get_team_applies(request: APIRequest, team_id: uuid.UUID):
+    team = await aget_object_or_404(Team, id=team_id)
+    if team.creator_id != request.user.id:
+        return 403, ErrorSchema(detail="You are not creator of this team")
 
-    # Получаем список всех участников хакатона
-    all_participants = hackathon.participants.all()
+    applies = [await apply.to_entity() async for apply in team.applies.all()]
 
-    # Получаем список всех участников, которые входят в команды
-    participants_in_teams = Account.objects.filter(
-        team_members__hackathon=hackathon
-    ).distinct()
-
-    # Вычисляем участников, которые не входят в команды
-    participants_without_team = all_participants.exclude(id__in=participants_in_teams)
-
-    # Возвращаем список участников без команды с именем, ролью и id
-    return [
-        ParticipantOut(
-            id=participant.id,
-            email=participant.email,
-            name=participant.username,
-            role="organizer" if participant.is_organizator else "user",
-        )
-        for participant in participants_without_team
-    ]
+    return 200, applies
 
 
-@team_router.get("/hackathon/{hackathon_id}/pending_invitations", response=List[str])
-def pending_invitations(request, hackathon_id: uuid.UUID):
-    # Получаем хакатон по id
-    hackathon = get_object_or_404(Hackathon, id=hackathon_id)
-
-    # Получаем все email-адреса, которые были приглашены на хакатон
-    invited_emails = hackathon.emails.values_list("email", flat=True)
-
-    # Получаем список email-адресов участников, которые уже присоединились к хакатону
-    joined_emails = hackathon.participants.values_list("email", flat=True)
-
-    # Вычисляем email-адреса, которые были приглашены, но еще не присоединились
-    pending_emails = set(invited_emails) - set(joined_emails)
-
-    # Возвращаем список email-адресов, которые еще не присоединились к хакатону
-    return list(pending_emails)
+@team_router.get(path="/{team_id}", response={200: TeamSchema})
+async def get_team_by_id(
+    request: APIRequest, team_id: uuid.UUID
+) -> tuple[int, TeamEntity]:
+    team = await aget_object_or_404(
+        Team.objects.prefetch_related("team_members"), id=team_id
+    )
+    return 200, await team.to_entity()

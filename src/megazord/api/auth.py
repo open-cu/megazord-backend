@@ -26,12 +26,15 @@ class BadCredentials(AuthException):
 
 
 class AuthBearer(HttpBearer):
-    def __call__(self, request: APIRequest):
+    async def __call__(self, request: APIRequest):
         if request.user.is_authenticated:
             return request.user
-        return super().__call__(request)
 
-    def authenticate(self, request: APIRequest, token: str) -> str:
+        if original := super().__call__(request):
+            return await original
+        return False
+
+    async def authenticate(self, request: APIRequest, token: str) -> str:
         try:
             jwt_data = validate_jwt(token=token)
         except jwt.InvalidTokenError:
@@ -42,7 +45,7 @@ class AuthBearer(HttpBearer):
             raise InvalidToken
 
         try:
-            user = Account.objects.get(id=user_id)
+            user = await Account.objects.aget(id=user_id)
         except ObjectDoesNotExist:
             raise InvalidToken
 
