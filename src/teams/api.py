@@ -2,12 +2,13 @@ import uuid
 from datetime import datetime
 
 import jwt
+from asgiref.sync import sync_to_async
 from django.db.models import Count
 from django.shortcuts import aget_object_or_404
 from ninja import Router
 
 from accounts.models import Account
-from hackathons.models import Hackathon
+from hackathons.models import Hackathon, NotificationStatus
 from hackathons.schemas import HackathonSummarySchema
 from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
@@ -507,15 +508,41 @@ async def get_participants_without_team(request: APIRequest, hackathon_id: uuid.
 
 @team_router.get(
     path="/hackathon/{hackathon_id}/pending_invitations",
-    response={200: list[str], ERROR_CODES: ErrorSchema},
+    response={200: list[dict], ERROR_CODES: ErrorSchema},
 )
 async def pending_invitations(request: APIRequest, hackathon_id: uuid.UUID):
-    hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
+    hackathon = await sync_to_async(Hackathon.objects.get)(id=hackathon_id)
     if hackathon.creator_id != request.user.id:
         return 403, ErrorSchema(detail="You are not the creator")
 
-    pending_emails = hackathon.emails.exclude(
-        email__in=hackathon.participants.values_list("email", flat=True)
+    pending_emails = await sync_to_async(list)(
+        hackathon.emails.exclude(
+            email__in=await sync_to_async(list)(
+                hackathon.participants.values_list("email", flat=True)
+            )
+        )
     )
 
-    return 200, [pending_email.email async for pending_email in pending_emails.all()]
+    result = []
+    for pending_email in pending_emails:
+        notification_status = await sync_to_async(NotificationStatus.objects.filter)(
+            email=pending_email.email
+        )
+
+        if await sync_to_async(notification_status.exists)():
+            notification_status = await sync_to_async(notification_status.first)()
+            send_tg_status = notification_status.telegram_sent
+            send_email_status = notification_status.email_sent
+        else:
+            send_tg_status = True
+            send_email_status = True
+
+        result.append(
+            {
+                "email": pending_email.email,
+                "send_tg_status": send_tg_status,
+                "send_email_status": send_email_status,
+            }
+        )
+
+    return 200, result

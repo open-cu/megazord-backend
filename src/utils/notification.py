@@ -78,6 +78,17 @@ async def send_notification_by_email(
         except Account.DoesNotExist:
             user = None
 
+        notification_status_exists = await sync_to_async(
+            lambda: NotificationStatus.objects.filter(email=email.email).exists()
+        )()
+
+        if notification_status_exists:
+            notification_status = await sync_to_async(
+                lambda: NotificationStatus.objects.filter(email=email.email).first()
+            )()
+        else:
+            notification_status = None
+
         if mail_template is not None:
             email_sent = await send_email(
                 template_name=mail_template,
@@ -96,10 +107,12 @@ async def send_notification_by_email(
                 chat_id=user.telegram_id,
             )
 
-        if not email_sent or not telegram_sent:
-            await sync_to_async(NotificationStatus.objects.create)(
-                email=email.email, email_sent=email_sent, telegram_sent=telegram_sent
-            )
+        await process_notification_status(
+            email=email.email,
+            email_sent=email_sent,
+            telegram_sent=telegram_sent,
+            notification_status=notification_status,
+        )
 
 
 async def send_notification_by_user(
@@ -118,6 +131,17 @@ async def send_notification_by_user(
         telegram_sent = True
         context["current_user"] = user
 
+        notification_status_exists = await sync_to_async(
+            lambda: NotificationStatus.objects.filter(email=user.email).exists()
+        )()
+
+        if notification_status_exists:
+            notification_status = await sync_to_async(
+                lambda: NotificationStatus.objects.filter(email=user.email).first()
+            )()
+        else:
+            notification_status = None
+
         if mail_template is not None:
             email_sent = await send_email(
                 template_name=mail_template,
@@ -132,10 +156,12 @@ async def send_notification_by_user(
                 chat_id=user.telegram_id,
             )
 
-        if not email_sent or not telegram_sent:
-            await sync_to_async(NotificationStatus.objects.create)(
-                email=user.email, email_sent=email_sent, telegram_sent=telegram_sent
-            )
+        await process_notification_status(
+            email=user.email,
+            email_sent=email_sent,
+            telegram_sent=telegram_sent,
+            notification_status=notification_status,
+        )
 
 
 async def send_email(
@@ -194,3 +220,23 @@ async def send_telegram_message(
                 return False
 
     return True
+
+
+async def process_notification_status(
+    email: str,
+    email_sent: bool,
+    telegram_sent: bool,
+    notification_status: NotificationStatus | None,
+):
+    if notification_status is not None:
+        if email_sent and telegram_sent:
+            await sync_to_async(notification_status.delete)()
+        else:
+            notification_status.email_sent = email_sent
+            notification_status.telegram_sent = telegram_sent
+            await sync_to_async(notification_status.save)()
+    else:
+        if not email_sent or not telegram_sent:
+            await sync_to_async(NotificationStatus.objects.create)(
+                email=email, email_sent=email_sent, telegram_sent=telegram_sent
+            )
