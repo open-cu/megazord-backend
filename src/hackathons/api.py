@@ -389,7 +389,7 @@ async def end_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
     await send_notification(
         emails=hackathon.emails.all(),
         context={"hackathon": hackathon},
-        mail_template="hackathons/telegram/hackathon_ended.html",
+        mail_template="hackathons/mail/hackathon_ended.html",
         telegram_template="hackathons/telegram/hackathon_ended.html",
     )
 
