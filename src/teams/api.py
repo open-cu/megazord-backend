@@ -73,7 +73,9 @@ async def accept_application(request: APIRequest, app_id: uuid.UUID):
     if total_team_participants >= hackathon.max_participants:
         return 400, ErrorSchema(detail="Team is full")
 
-    await apply.adelete()
+    await team.applies.filter(
+        who_responsed=apply.who_responsed
+    ).adelete()  # delete all user applies for this team
     await team.team_members.aadd(apply.who_responsed)
 
     await send_notification(
