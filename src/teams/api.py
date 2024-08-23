@@ -394,7 +394,7 @@ async def apply_for_job(request: APIRequest, vac_id: uuid.UUID):
 
     await send_notification(
         users=team.creator,
-        context={"who_response": user, "team": team},
+        context={"who_response": user, "team": team, "vacancy": vacancy},
         mail_template="teams/mail/new_job_response.html",
         telegram_template="teams/telegram/new_job_response.html",
     )
