@@ -71,7 +71,7 @@ async def edit_resume(
     request: APIRequest, update_schema: ResumeUpdateSchema
 ) -> ResumeEntity:
     resume = await aget_object_or_404(
-        Resume,
+        Resume.objects.select_related("user"),
         user=request.user,
         hackathon_id=update_schema.hackathon_id,
         hackathon__status=Hackathon.Status.STARTED,

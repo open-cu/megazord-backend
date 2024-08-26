@@ -4,6 +4,7 @@ from ninja.testing import TestAsyncClient
 
 from accounts.models import Account
 from hackathons.models import Hackathon
+from profiles.schemas import ProfileSchema
 from resumes.api import router
 
 
@@ -36,7 +37,7 @@ class TestResumesAPI(TestCase):
         }
         self.resume_schema = self.create_resume_schema | {
             "role": None,
-            "user_id": str(self.user.id),
+            "user": ProfileSchema.from_orm(self.user).model_dump(mode="json"),
         }
 
     async def test_resume_create(self) -> None:
