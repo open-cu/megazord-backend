@@ -37,3 +37,7 @@ class EmailSchema(Schema):
 class ActivationSchema(Schema):
     email: EmailStr
     code: int
+
+
+class ResetPasswordSchema(Schema):
+    new_password: str = Field(min_length=6, description="Новый пароль пользователя")
