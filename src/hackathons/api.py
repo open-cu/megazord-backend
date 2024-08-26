@@ -1,6 +1,6 @@
 import logging
 import uuid
-from typing import Annotated, Any
+from typing import Annotated
 
 from django.db.models import Count, Q
 from django.http import HttpResponse
@@ -322,26 +322,24 @@ async def upload_emails_to_hackathon(
 
 @hackathon_router.get(
     path="/{hackathon_id}/export",
-    response={200: Any, ERROR_CODES: ErrorSchema},
+    response={200: str, ERROR_CODES: ErrorSchema},
 )
 async def export_participants_hackathon(request: APIRequest, hackathon_id: uuid.UUID):
     user = request.user
-    hackathon = await aget_object_or_404(
-        Hackathon.objects.select_related("creator"), id=hackathon_id
-    )
-    user_in_participants = await hackathon.participants.filter(user=user).aexists()
+    hackathon = await aget_object_or_404(Hackathon.objects, id=hackathon_id)
 
-    # Проверка, является ли пользователь создателем хакатона или его участником
-    if hackathon.creator != user and not user_in_participants:
-        return 403, {"details": "You do not have permission to access this hackathon"}
+    if hackathon.creator_id != user.id:
+        return 403, ErrorSchema(
+            detail="You do not have permission to access this hackathon"
+        )
 
     csv_output = await make_csv(hackathon)
-    # Создание HTTP-ответа с заголовками для загрузки файла
+
     response = HttpResponse(csv_output, content_type="text/csv")
     response["Content-Disposition"] = (
         f'attachment; filename="hackathon_{hackathon_id}_participants.csv"'
     )
-    return 200, response
+    return response
 
 
 @hackathon_router.post(
