@@ -3,6 +3,7 @@ import uuid
 from ninja import ModelSchema, Schema
 from pydantic import Field
 
+from profiles.schemas import ProfileSchema
 from resumes.models import Resume
 
 
@@ -24,7 +25,7 @@ class ResumeUpdateSchema(ResumeCreateSchema):
 class ResumeSchema(Schema):
     id: uuid.UUID
     hackathon_id: uuid.UUID
-    user_id: uuid.UUID
+    user: ProfileSchema
     bio: str
     personal_website: str | None
     github: str | None
