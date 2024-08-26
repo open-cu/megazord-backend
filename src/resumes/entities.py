@@ -1,10 +1,12 @@
 from dataclasses import dataclass
 
+from accounts.entities import AccountEntity
+
 
 @dataclass
 class ResumeEntity:
     id: str
-    user_id: str
+    user: AccountEntity
     hackathon_id: str
 
     role: str

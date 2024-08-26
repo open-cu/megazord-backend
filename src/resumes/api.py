@@ -59,7 +59,9 @@ async def create_custom_resume(
 async def get_resume(
     request: APIRequest, hackathon_id: uuid.UUID, user_id: uuid.UUID
 ) -> ResumeEntity:
-    resume = await aget_object_or_404(Resume, user=user_id, hackathon_id=hackathon_id)
+    resume = await aget_object_or_404(
+        Resume.objects.select_related("user"), user=user_id, hackathon_id=hackathon_id
+    )
 
     return await resume.to_entity()
 

@@ -32,7 +32,7 @@ class Resume(models.Model):
 
         return ResumeEntity(
             id=self.id,
-            user_id=str(self.user_id),
+            user=await self.user.to_entity(),
             hackathon_id=str(self.hackathon_id),
             role=role,
             bio=self.bio,
