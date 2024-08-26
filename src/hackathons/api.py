@@ -12,7 +12,8 @@ from hackathons.models import NotificationStatus
 from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema, StatusSchema
-from profiles.schemas import ProfileSchema
+from resumes.models import Resume
+from resumes.schemas import ResumeSchema
 from teams.models import Team
 from teams.schemas import EmailSchema, TeamSchema
 from utils.notification import send_notification
@@ -475,7 +476,7 @@ async def hackathon_summary(request: APIRequest, hackathon_id: uuid.UUID):
 
 @hackathon_router.get(
     path="/{hackathon_id}/participants_without_team",
-    response={200: list[ProfileSchema], ERROR_CODES: ErrorSchema},
+    response={200: list[ResumeSchema], ERROR_CODES: ErrorSchema},
 )
 async def get_participants_without_team(request: APIRequest, hackathon_id: uuid.UUID):
     # Получаем хакатон по id
@@ -487,11 +488,11 @@ async def get_participants_without_team(request: APIRequest, hackathon_id: uuid.
     participants_without_team = hackathon.participants.exclude(
         team_members__hackathon=hackathon
     )
+    resumes = Resume.objects.select_related("user").filter(
+        user__in=participants_without_team
+    )
 
-    # Возвращаем список участников без команды с именем, ролью и id
-    return 200, [
-        await participant.to_entity() async for participant in participants_without_team
-    ]
+    return 200, [await resume.to_entity() async for resume in resumes]
 
 
 @hackathon_router.get(
