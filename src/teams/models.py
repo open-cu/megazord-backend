@@ -18,6 +18,7 @@ class Team(models.Model):
     name = models.CharField(max_length=200, blank=False)
     creator = models.ForeignKey(Account, on_delete=models.CASCADE)
     team_members = models.ManyToManyField(Account, related_name="team_members")
+    is_hand_create = models.BooleanField(default=False)
 
     async def to_entity(self) -> TeamEntity:
         creator = await sync_to_async(lambda: self.creator)()

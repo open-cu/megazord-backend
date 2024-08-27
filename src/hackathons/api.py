@@ -1,7 +1,7 @@
 import logging
 import random
 import uuid
-from typing import Annotated
+from typing import Annotated, List
 
 from asgiref.sync import sync_to_async
 from django.db.models import Count, Q
@@ -15,7 +15,7 @@ from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema, StatusSchema
 from resumes.models import Resume
-from resumes.schemas import ResumeSchema
+from resumes.schemas import ResumeSchema, TeamWithResumesSchema
 from teams.models import Team
 from teams.schemas import EmailSchema, TeamSchema
 from utils.notification import send_notification
@@ -564,6 +564,7 @@ async def create_teams_by_emails(
         hackathon=hackathon,
         name=team_name,
         creator=creator_participant,
+        is_hand_create=True,
     )
     await new_team.asave()
 
@@ -581,3 +582,40 @@ async def create_teams_by_emails(
     return 200, StatusSchema(
         detail="Teams created successfully, existing team members were skipped"
     )
+
+
+@hackathon_router.get(
+    path="/{hackathon_id}/hand_created_teams",
+    response={200: List[TeamWithResumesSchema], ERROR_CODES: ErrorSchema},
+)
+async def get_hand_created_teams(request: APIRequest, hackathon_id: uuid.UUID):
+    hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
+
+    hand_created_teams = Team.objects.filter(hackathon=hackathon, is_hand_create=True)
+
+    team_entities = []
+    async for team in hand_created_teams:
+        team_entity = await team.to_entity()
+
+        resume_entities = []
+        async for member in team.team_members.all():
+            resume = (
+                await Resume.objects.select_related("user")
+                .filter(user=member, hackathon=hackathon)
+                .afirst()
+            )
+
+            if resume:
+                resume_entity = await resume.to_entity()
+                resume_entities.append(resume_entity)
+
+        team_with_resumes = TeamWithResumesSchema(
+            id=team_entity.id,
+            hackathon_id=team_entity.hackathon_id,
+            name=team_entity.name,
+            creator_id=team_entity.creator_id,
+            resumes=resume_entities,
+        )
+        team_entities.append(team_with_resumes)
+
+    return 200, team_entities
