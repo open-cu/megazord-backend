@@ -1,7 +1,9 @@
 import uuid
+from typing import List
+from uuid import UUID
 
 from ninja import ModelSchema, Schema
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from profiles.schemas import ProfileSchema
 from resumes.models import Resume
@@ -45,3 +47,11 @@ class ResumeSuggestionSchema(Schema):
     bio: str | None = None
     hards: list[str] = []
     softs: list[str] = []
+
+
+class TeamWithResumesSchema(BaseModel):
+    id: UUID
+    hackathon_id: UUID
+    name: str
+    creator_id: UUID
+    resumes: List[ResumeSchema]
