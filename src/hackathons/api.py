@@ -1,7 +1,9 @@
 import logging
+import random
 import uuid
 from typing import Annotated
 
+from asgiref.sync import sync_to_async
 from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import aget_object_or_404
@@ -52,7 +54,6 @@ async def create_hackathon(
             "detail": "You are not organizator and you can't create hackathons"
         }
 
-    # Проверка на наличие запятых в названии хакатона
     if "," in body.name:
         return 400, {"detail": "Hackathon name cannot contain commas."}
 
@@ -75,10 +76,8 @@ async def create_hackathon(
         participants |= set(csv_participants)
 
     for participant in participants:
-        # Создание или получение объекта Email
         email_obj, created = await Email.objects.aget_or_create(email=participant)
 
-        # Добавление email в хакатон
         await hackathon.emails.aadd(email_obj)
 
     return 201, await hackathon.to_entity()
@@ -264,9 +263,11 @@ async def get_specific_hackathon(
 )
 async def list_my_hackathons(request: APIRequest):
     user = request.user
-    hackathons_queryset = Hackathon.objects.filter(
-        Q(creator=user) | Q(participants=user)
-    ).select_related("creator")
+    hackathons_queryset = (
+        Hackathon.objects.filter(Q(creator=user) | Q(participants=user))
+        .select_related("creator")
+        .distinct()
+    )
     hackathons = [
         await hackathon.to_entity() async for hackathon in hackathons_queryset
     ]
@@ -297,7 +298,6 @@ async def upload_emails_to_hackathon(
         Hackathon.objects.select_related("creator"), id=hackathon_id
     )
 
-    # Проверка, является ли пользователь создателем хакатона
     if hackathon.creator != user:
         return 403, ErrorSchema(
             detail="You are not the creator and can not edit this hackathon"
@@ -306,10 +306,8 @@ async def upload_emails_to_hackathon(
     try:
         emails = get_emails_from_csv(file=csv_file)
         for email in emails:
-            # Создание или получение объекта Email
             email_obj, created = await Email.objects.aget_or_create(email=email)
 
-            # Добавление email в хакатон
             await hackathon.emails.aadd(email_obj)
 
         await hackathon.asave()
@@ -428,10 +426,8 @@ async def hackathon_summary(request: APIRequest, hackathon_id: uuid.UUID):
     if hackathon.creator_id != request.user.id:
         return 403, ErrorSchema(detail="You are not the creator")
 
-    # Общее количество команд
     total_teams = await Team.objects.filter(hackathon=hackathon).acount()
 
-    # Количество команд с максимальным количеством участников (полные команды)
     full_teams = await (
         Team.objects.filter(hackathon=hackathon)
         .annotate(num_members=Count("team_members"))
@@ -439,15 +435,12 @@ async def hackathon_summary(request: APIRequest, hackathon_id: uuid.UUID):
         .acount()
     )
 
-    # Процент полных команд
     percent_full_teams = (full_teams / total_teams) * 100 if total_teams > 0 else 0
 
-    # Список людей без команд
     people_without_teams = hackathon.participants.exclude(
         team_members__hackathon=hackathon
     )
 
-    # Количество людей в командах из тех, кто зарегистрировался
     people_in_teams = await (
         Team.objects.filter(hackathon=hackathon)
         .values_list("team_members", flat=True)
@@ -455,10 +448,8 @@ async def hackathon_summary(request: APIRequest, hackathon_id: uuid.UUID):
         .acount()
     )
 
-    # Количество приглашенных людей (по количеству emails в хакатоне)
     invited_people = await hackathon.emails.acount()
 
-    # Количество людей, принявших приглашение (по количеству участников)
     accepted_invite = await hackathon.participants.acount()
 
     return HackathonSummarySchema(
@@ -479,12 +470,10 @@ async def hackathon_summary(request: APIRequest, hackathon_id: uuid.UUID):
     response={200: list[ResumeSchema], ERROR_CODES: ErrorSchema},
 )
 async def get_participants_without_team(request: APIRequest, hackathon_id: uuid.UUID):
-    # Получаем хакатон по id
     hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
     if hackathon.creator_id != request.user.id:
         return 403, ErrorSchema(detail="You are not the creator")
 
-    # Вычисляем участников, которые не входят в команды
     participants_without_team = hackathon.participants.exclude(
         team_members__hackathon=hackathon
     )
@@ -500,7 +489,6 @@ async def get_participants_without_team(request: APIRequest, hackathon_id: uuid.
     response={200: list[NotificationStatusSchema], ERROR_CODES: ErrorSchema},
 )
 async def pending_invitations(request: APIRequest, hackathon_id: uuid.UUID):
-    # Получаем хакатон по id
     hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
     if hackathon.creator_id != request.user.id:
         return 403, ErrorSchema(detail="You are not the creator")
@@ -531,3 +519,65 @@ async def pending_invitations(request: APIRequest, hackathon_id: uuid.UUID):
         )
 
     return 200, result
+
+
+@hackathon_router.post(
+    path="/{hackathon_id}/create_teams",
+    response={200: StatusSchema, 400: ErrorSchema, ERROR_CODES: ErrorSchema},
+)
+async def create_teams_by_emails(
+    request: APIRequest, hackathon_id: uuid.UUID, emails_schema: EmailsSchema
+):
+    user = request.user
+    hackathon = await aget_object_or_404(Hackathon, id=hackathon_id)
+
+    if hackathon.creator_id != user.id:
+        return 403, ErrorSchema(detail="You are not the creator")
+
+    emails = emails_schema.emails
+    email_count = len(emails)
+
+    if email_count > hackathon.max_participants:
+        return 400, ErrorSchema(
+            detail=f"Cannot create team with more than {hackathon.max_participants} participants"
+        )
+
+    email_objs = await sync_to_async(list)(Email.objects.filter(email__in=emails))
+
+    if not email_objs:
+        return 400, ErrorSchema(detail="No matching emails found in the hackathon")
+
+    first_email_obj = email_objs[0]
+    creator_participant = await hackathon.participants.filter(
+        email=first_email_obj.email
+    ).afirst()
+
+    if not creator_participant:
+        return 400, ErrorSchema(
+            detail="The first email does not match any participants in the hackathon"
+        )
+
+    random_digits = "".join([str(random.randint(0, 9)) for _ in range(6)])
+    team_name = f"Team{random_digits}"
+
+    new_team = Team(
+        hackathon=hackathon,
+        name=team_name,
+        creator=creator_participant,
+    )
+    await new_team.asave()
+
+    for email_obj in email_objs:
+        participants = await sync_to_async(list)(
+            hackathon.participants.filter(email=email_obj.email)
+        )
+        for participant in participants:
+            if await Team.objects.filter(
+                hackathon=hackathon, team_members=participant
+            ).aexists():
+                continue
+            await new_team.team_members.aadd(participant)
+
+    return 200, StatusSchema(
+        detail="Teams created successfully, existing team members were skipped"
+    )
