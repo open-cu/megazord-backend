@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  backend:
+    image: ghcr.io/open-cu/megazord-backend:${BACKEND_IMAGE_TAG:-main}
+
+    build: {}
+    ports: []
+    volumes: []
+
+  db:
+    ports: []
+
+  frontend:
+    ports: [ ]

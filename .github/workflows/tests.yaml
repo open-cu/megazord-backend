@@ -22,30 +22,13 @@ jobs:
           python-version: "3.12.4"
 
       - name: Install requirements
-        run: pip install -r requirements.txt -r requirements.dev.txt
+        run: make install
 
       - uses: pre-commit/action@v3.0.1
         with:
           extra_args: --verbose
   test:
     runs-on: ubuntu-latest
-    env:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_DB: megazord
-
-    services:
-      postgres:
-        image: postgres:16
-
-        env:
-          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
-          POSTGRES_USER: ${{ env.POSTGRES_USER }}
-          POSTGRES_DB: ${{ env.POSTGRES_DB }}
-
-        ports:
-          - 5432:5432
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -56,22 +39,13 @@ jobs:
           python-version: "3.12.4"
 
       - name: Install requirements
-        run: pip install -r requirements.txt -r requirements.dev.txt
+        run: make install
 
-      - name: Test Django
-        env:
-          DEBUG: True
-          DATABASE_HOST: localhost
-          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
-          POSTGRES_USER: ${{ env.POSTGRES_USER }}
-          POSTGRES_DB: ${{ env.POSTGRES_DB }}
-        run: |
-          coverage run src/manage.py test src/
-          coverage xml
+      - name: Test app
+        run: make test
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage.xml
