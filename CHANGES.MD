@@ -1,8 +1,10 @@
 # Changelog
-## Unreleased - 20.08.2024
+## Unreleased - 27.08.2024
 
 ### Features
 
+- Return resumes of participants without team (#88) - ([94500f2](https://github.com/open-cu/megazord-backend/commit/94500f27390e0c49dfe8578c9c17b26655c906e3))
+- Add async support (#79) - ([9b3566d](https://github.com/open-cu/megazord-backend/commit/9b3566dff7380403c19a94acbdb327806d0b0a27))
 - Add account confirmation (#69) - ([5325693](https://github.com/open-cu/megazord-backend/commit/5325693a63876c66d59f0d30724bbe15252fefc6))
 - Add mail notification when user kicked from team (#67) - ([1df91cf](https://github.com/open-cu/megazord-backend/commit/1df91cf62f9c9157bf3aa184a2dae8b5ad054c92))
 - Add endpoint for send invites to hackathon (#61) - ([af858f6](https://github.com/open-cu/megazord-backend/commit/af858f6de08e08c335352c3fd9c61dc9deb70681))
@@ -17,6 +19,8 @@
 
 ### Bug Fixes
 
+- Csv export (#86) - ([c068963](https://github.com/open-cu/megazord-backend/commit/c0689637d01651847db4d2ddea0ad4511f3e719c))
+- Hackathon end mail notification (#81) - ([f6a1e24](https://github.com/open-cu/megazord-backend/commit/f6a1e24a15ed9053ad9cbc873b3749664eb65e45))
 - Add frontend url to settings (#73) - ([2a73566](https://github.com/open-cu/megazord-backend/commit/2a7356639e3dfeb2193d54056fced191c1664041))
 - Store images as binary (#65) - ([0871dd0](https://github.com/open-cu/megazord-backend/commit/0871dd004b37836a404bb3504deab65504a6132b))
 - Email validation & url in mail template (#58) - ([ac62f45](https://github.com/open-cu/megazord-backend/commit/ac62f451d575432d40b68b5e4fcca26ecd00400c))
@@ -40,6 +44,9 @@
 
 ### Add
 
+- Purt merge (#91) - ([b19cdfa](https://github.com/open-cu/megazord-backend/commit/b19cdfa538882147fdeb4356d06b49cef7e7a4cc))
+- Reset password (#84) - ([6530c31](https://github.com/open-cu/megazord-backend/commit/6530c318d7920acd4a26c7c7884d75ab8b402d14))
+- Notifications in telegram (#80) - ([0b5ad4a](https://github.com/open-cu/megazord-backend/commit/0b5ad4adc0748135a2cb019467eaa87752ecc864))
 - Export csv (#40) - ([fa8a7ab](https://github.com/open-cu/megazord-backend/commit/fa8a7aba0a59a5ca613545af25e64227275ee349))
 - Upload csv - ([9166750](https://github.com/open-cu/megazord-backend/commit/9166750a498b74270adc60e208828ea18b4cb7de))
 - Analytics for admins - ([f26ae4b](https://github.com/open-cu/megazord-backend/commit/f26ae4b8215e120692e7ea8c81e0dd486f236b02))
@@ -62,6 +69,7 @@
 
 ### Fix
 
+- Id -> uuid (#74) - ([a27b79b](https://github.com/open-cu/megazord-backend/commit/a27b79b1e5118c95eacfb1eae5ff071d156fc282))
 - Upload csv (#60) - ([288d777](https://github.com/open-cu/megazord-backend/commit/288d777edfd7aafaee99748bc96425ef002beca7))
 - Environment - ([47aa38d](https://github.com/open-cu/megazord-backend/commit/47aa38d0938f61c71b613d881b9312689995bf6d))
 - Docker-compose image - ([9141e2a](https://github.com/open-cu/megazord-backend/commit/9141e2a3f72580019b66de5593922ae00a12b29f))
