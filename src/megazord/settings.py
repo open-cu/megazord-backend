@@ -83,6 +83,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "megazord.middlewares.ContextRequestMiddleware",
 ]
 
 TEMPLATES = [
@@ -154,7 +155,6 @@ USE_I18N = True
 
 USE_TZ = True
 
-FRONTEND_URL = env("FRONTEND_URL")
 
 # Confirmation code TTL in minutes
 CONFIRMATION_CODE_TTL = env("CONFIRMATION_CODE_TTL")

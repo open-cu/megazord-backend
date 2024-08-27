@@ -10,7 +10,7 @@ from hackathons.models import Hackathon
 from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
 from megazord.schemas import ErrorSchema, StatusSchema
-from megazord.settings import FRONTEND_URL, SECRET_KEY
+from megazord.settings import SECRET_KEY
 from resumes.models import Resume
 from utils.notification import send_notification
 from vacancies.entities import VacancyEntity
@@ -132,11 +132,7 @@ async def add_user_to_team(
 
     await send_notification(
         users=user_to_add,
-        context={
-            "team": team,
-            "invite_code": encoded_jwt,
-            "frontend_url": FRONTEND_URL,
-        },
+        context={"team": team, "invite_code": encoded_jwt},
         mail_template="teams/mail/invitation_to_team.html",
         telegram_template="teams/telegram/invitation_to_team.html",
     )

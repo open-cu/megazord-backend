@@ -13,7 +13,8 @@ from mail_templated import send_mail as send_mail_sync
 
 from accounts.models import Account, Email
 from hackathons.models import NotificationStatus
-from megazord.settings import FRONTEND_URL, TELEGRAM_BOT_TOKEN
+from megazord.context import context_request
+from megazord.settings import TELEGRAM_BOT_TOKEN
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,12 @@ async def send_notification(
 
     if context is None:
         context = {}
-    context.update({"current_user": None, "frontend_url": FRONTEND_URL})
+    context.update(
+        {
+            "current_user": None,
+            "frontend_url": context_request.get().META["HTTP_ORIGIN"],
+        }
+    )
 
     if users is not None:
         if isinstance(users, QuerySet):
