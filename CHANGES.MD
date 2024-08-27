@@ -44,6 +44,7 @@
 
 ### Add
 
+- Teams what created by hand (#93) - ([787cf28](https://github.com/open-cu/megazord-backend/commit/787cf284c63b12e053e0d9bf849c056ae8b9bdf7))
 - Purt merge (#91) - ([b19cdfa](https://github.com/open-cu/megazord-backend/commit/b19cdfa538882147fdeb4356d06b49cef7e7a4cc))
 - Reset password (#84) - ([6530c31](https://github.com/open-cu/megazord-backend/commit/6530c318d7920acd4a26c7c7884d75ab8b402d14))
 - Notifications in telegram (#80) - ([0b5ad4a](https://github.com/open-cu/megazord-backend/commit/0b5ad4adc0748135a2cb019467eaa87752ecc864))
