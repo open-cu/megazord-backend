@@ -1,20 +1,49 @@
-name: Build
+name: CI
 
 on:
-  workflow_run:
-    workflows:
-      - Test
-    types:
-      - completed
+  push:
     branches:
       - main
+  pull_request:
+    types:
+      - opened
+      - synchronize
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push-image:
+  lint_and_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.4"
+
+      - name: Install requirements
+        run: make install
+
+      - name: Lint
+        uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: --verbose
+
+      - name: Tests
+        run: make test
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  build:
+    needs: lint_and_tests
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -43,9 +72,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=schedule
-            type=ref,event=branch
             type=ref,event=pr
+            type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}

@@ -51,6 +51,3 @@ test: test-unit test-integration test-e2e
 .PHONY: report
 report:
 	$(TEST) unit integration e2e --cov=./ --cov-report html
-
-.PHONY: ci
-ci: lint test
