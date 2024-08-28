@@ -3,6 +3,7 @@
 
 ### Features
 
+- Improve ci (#90) - ([dcb68af](https://github.com/open-cu/megazord-backend/commit/dcb68afff86007e20a3bdf3fe6bdcc23853930a3))
 - Return resumes of participants without team (#88) - ([94500f2](https://github.com/open-cu/megazord-backend/commit/94500f27390e0c49dfe8578c9c17b26655c906e3))
 - Add async support (#79) - ([9b3566d](https://github.com/open-cu/megazord-backend/commit/9b3566dff7380403c19a94acbdb327806d0b0a27))
 - Add account confirmation (#69) - ([5325693](https://github.com/open-cu/megazord-backend/commit/5325693a63876c66d59f0d30724bbe15252fefc6))
