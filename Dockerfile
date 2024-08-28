@@ -1,28 +1,39 @@
 FROM python:3.12.4-slim
+LABEL description="Megazord backend image"
 
-# Установим системные зависимости для Django
-RUN apt-get update && apt-get install -y \
-    libpq-dev \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+USER root
+ENV APP_USER=app
+ARG ENVIRONMENT=production
+ENV ENVIRONMENT=${ENVIRONMENT}
+ENV DJANGO_SETTINGS_MODULE="megazord.settings"
 
-# Установим рабочий каталог
-WORKDIR /app
+ARG WORK_DIR=/opt
+ENV PYTHONPATH=$WORK_DIR
 
-# Скопируем все файлы проекта в контейнер
+WORKDIR $WORK_DIR
+
+COPY requirements.txt requirements.tests.txt ./
+RUN pip install -r requirements.txt -r requirements.tests.txt
+
 COPY . .
 
-# Установим зависимости Python
-RUN pip install --no-cache-dir -r requirements.txt
+RUN \
+    apt-get update && apt-get install -y --no-install-recommends \
+    make \
+    && apt-get autoclean && apt-get autoremove \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
+    && adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/nonexistent" \
+    --shell "/sbin/nologin" \
+    --no-create-home \
+    $APP_USER \
+    && chown $APP_USER:$APP_USER $WORK_DIR
 
-# Установим переменную окружения для Django
-ENV DJANGO_SETTINGS_MODULE=megazord.settings
+USER $APP_USER
 
-# Сделаем скрипт исполняемым
-RUN chmod +x ./entrypoint.sh
-
-# Укажем ENTRYPOINT для контейнера
-ENTRYPOINT ["./entrypoint.sh"]
-
-# Откроем порт для доступа к приложению Django
 EXPOSE 8000
+
+CMD ["python", "src/main.py"]

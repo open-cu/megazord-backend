@@ -19,28 +19,45 @@ import environ
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Read env
-env = environ.Env()
+env = environ.Env(
+    DEBUG=(bool, False),
+    RELOAD=(bool, False),
+    LOG_LEVEL=(str, "INFO"),
+    SECRET_KEY=(str, "secret"),
+    DEPLOY_DOMAIN=(str, "localhost"),
+    DATABASE_DB=(str, "megazord"),
+    DATABASE_USER=(str, "megazord_user"),
+    DATABASE_PASSWORD=(str, "megazord_super_user"),
+    DATABASE_HOST=(str, "localhost"),
+    DATABASE_PORT=(int, 5432),
+    EMAIL_HOST=(str, "smtp.gmail.com"),
+    EMAIL_PORT=(int, 587),
+    EMAIL_HOST_USER=(str, "email@example.org"),
+    EMAIL_HOST_PASSWORD=(str, "password"),
+    CONFIRMATION_CODE_TTL=(int, 2),
+    TELEGRAM_BOT_TOKEN=(str, "228"),
+    TELEGRAM_BOT_USERNAME=(str, "FindYourMate_bot"),
+)
 env.read_env(BASE_DIR.parent / ".env")
 
 # logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.getLevelName(env("LOG_LEVEL")))
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
+DEBUG = env("DEBUG")
+RELOAD = env("RELOAD")
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env.str("SECRET_KEY", "secret")
+SECRET_KEY = env("SECRET_KEY")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool("DJANGO_DEBUG", False)
-
-ALLOWED_HOSTS = ["*"]
-CORS_ALLOW_ALL_ORIGINS = True
-
-FRONTEND_URL = env.str("FRONTEND_URL", default="http://localhost:3000")
+# CORS
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+    ALLOWED_HOSTS = ["*"]
+else:
+    CORS_ALLOWED_ORIGIN_REGEXES = [r"^https?://localhost(:[0-9]{1,5})?$"]
+    CORS_ALLOWED_ORIGINS = [f"https://{env("DEPLOY_DOMAIN")}"]
+    ALLOWED_HOSTS = ["localhost", env("DEPLOY_DOMAIN")]
 
 # Application definition
-
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -57,8 +74,6 @@ INSTALLED_APPS = [
     "vacancies",
 ]
 
-AUTH_USER_MODEL = "accounts.Account"
-
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -68,9 +83,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "megazord.middlewares.ContextRequestMiddleware",
 ]
-
-ROOT_URLCONF = "megazord.urls"
 
 TEMPLATES = [
     {
@@ -88,26 +102,33 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "megazord.wsgi.application"
+ROOT_URLCONF = "megazord.urls"
 
+WSGI_APPLICATION = "megazord.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": env.str("POSTGRES_DB", default="megazord"),
-        "USER": env.str("POSTGRES_USER", default="megazord_user"),
-        "PASSWORD": env.str("POSTGRES_PASSWORD", default="megazord_super_user"),
-        "HOST": env.str("DATABASE_HOST", default="db"),
-        "PORT": env.int("DATABASE_PORT", default=5432),
+        "NAME": env("DATABASE_DB"),
+        "USER": env("DATABASE_USER"),
+        "PASSWORD": env("DATABASE_PASSWORD"),
+        "HOST": env("DATABASE_HOST"),
+        "PORT": env("DATABASE_PORT"),
     }
 }
 
+# Default primary key field type
+# https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Authorization
+AUTH_USER_MODEL = "accounts.Account"
+
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -134,33 +155,24 @@ USE_I18N = True
 
 USE_TZ = True
 
-# AUTHENTICATION_BACKENDS = [
-#     'django.contrib.auth.backends.ModelBackend',
-# ]
 
+# Confirmation code TTL in minutes
+CONFIRMATION_CODE_TTL = env("CONFIRMATION_CODE_TTL")
 
+# telegram bot settings
+TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN")
+TELEGRAM_BOT_USERNAME = env("TELEGRAM_BOT_USERNAME")
+
+# Email settings
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 
-EMAIL_HOST = env.str("EMAIL_HOST", default="smtp.gmail.com")
-EMAIL_PORT = env.int("EMAIL_PORT", default=587)
-EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", default="email@example.org")
-EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD", default="password")
-
-# ACCOUNT_PASSWORD_RESET_CONFIRM = True
+EMAIL_HOST = env("EMAIL_HOST")
+EMAIL_PORT = env("EMAIL_PORT")
+EMAIL_HOST_USER = env("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 SERVER_EMAIL = EMAIL_HOST_USER
 EMAIL_ADMIN = EMAIL_HOST_USER
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
-
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-# Confirmation code TTL in minutes
-CONFIRMATION_CODE_TTL = env.int("CONFIRMATION_CODE_TTL", default=2)
-
-TELEGRAM_BOT_TOKEN = env.str("TELEGRAM_BOT_TOKEN", default="228")
-TELEGRAM_BOT_USERNAME = env.str("TELEGRAM_BOT_USERNAME", default="FindYourMate_bot")
