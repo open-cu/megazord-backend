@@ -6,6 +6,7 @@ from django.shortcuts import aget_object_or_404
 from ninja import Router
 
 from accounts.models import Account
+from hackathons import models
 from hackathons.models import Hackathon
 from megazord.api.codes import ERROR_CODES
 from megazord.api.requests import APIRequest
@@ -278,11 +279,27 @@ async def edit_team(
 
 @team_router.get(path="/", response={200: list[TeamSchema], ERROR_CODES: ErrorSchema})
 async def get_teams(
-    request: APIRequest, hackathon_id: uuid.UUID
-) -> tuple[int, list[Team]]:
+    request: APIRequest,
+    hackathon_id: uuid.UUID,
+    include_roles: list[str] = None,
+    not_include_roles: list[str] = None,
+) -> tuple[int, list[TeamSchema]]:
     teams_query_set = Team.objects.filter(hackathon_id=hackathon_id).prefetch_related(
-        "team_members"
+        "team_members", "vacancies__keywords", "hackathon__roles"
     )
+
+    if include_roles:
+        for role in include_roles:
+            teams_query_set = teams_query_set.filter(
+                models.Q(hackathon__roles__name__iexact=role)
+            ).distinct()
+
+    if not_include_roles:
+        for role in not_include_roles:
+            teams_query_set = teams_query_set.exclude(
+                models.Q(hackathon__roles__name__iexact=role)
+            ).distinct()
+
     teams = [await team.to_entity() async for team in teams_query_set]
 
     return 200, teams

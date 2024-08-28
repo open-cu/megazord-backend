@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 
 from ninja import Field, Schema
 from pydantic import BaseModel, ConfigDict
@@ -33,6 +34,8 @@ class TeamSchema(Schema):
     name: str
     creator: uuid.UUID = Field(alias="creator_id")
     team_members: list[ProfileSchema]
+    include_roles: Optional[list[str]] = None
+    not_include_roles: Optional[list[str]] = None
 
 
 class ApplySchema(Schema):
