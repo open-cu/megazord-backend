@@ -82,7 +82,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=sha
+            type=sha,format=long
 
       - name: Build and push image
         id: push
@@ -96,3 +96,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
+  deploy:
+    # run if push into main branch and auto deploy not prohibited
+    needs: build
+    if: ${{ github.ref == 'refs/heads/main' && (vars.AUTO_DEPLOY == 'True' || vars.AUTO_DEPLOY == '') }}
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      image_tag: ${{ format('sha-{0}', github.sha) }}
+    secrets: inherit

@@ -23,6 +23,8 @@ env = environ.Env(
     DEBUG=(bool, False),
     RELOAD=(bool, False),
     LOG_LEVEL=(str, "INFO"),
+    SERVER_HOST=(str, "0.0.0.0"),
+    SERVER_PORT=(int, 8000),
     SECRET_KEY=(str, "secret"),
     DEPLOY_DOMAIN=(str, "localhost"),
     DATABASE_DB=(str, "megazord"),
@@ -45,6 +47,9 @@ logging.basicConfig(level=logging.getLevelName(env("LOG_LEVEL")))
 
 DEBUG = env("DEBUG")
 RELOAD = env("RELOAD")
+
+SERVER_HOST = env("SERVER_HOST")
+SERVER_PORT = env("SERVER_PORT")
 
 SECRET_KEY = env("SECRET_KEY")
 

@@ -1,5 +1,6 @@
 TEST           = pytest $(arg)
 DC	           = docker compose
+ENV			   = --env-file .env
 CODE 	       = src tests
 
 .PHONY: build
@@ -8,8 +9,13 @@ build:
 
 .PHONY: up
 up:
-	$(DC) up -d
-	$(DC) exec -it backend python src/manage.py migrate
+	$(DC) $(ENV) up -d
+	$(DC) $(ENV) exec -it backend python src/manage.py migrate
+
+.PHONY: up-prod
+up-prod:
+	$(DC) $(ENV) -f compose.yaml -f compose.prod.yaml up -d
+	$(DC) $(ENV) exec backend python src/manage.py migrate
 
 .PHONY: down
 down:
