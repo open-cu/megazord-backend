@@ -67,6 +67,7 @@ class MyAccountManager(BaseUserManager):
             password=password,
             username=username,
             is_organizator=is_organizator,
+            is_active=True,
         )
         user.is_admin = True
         user.is_staff = True

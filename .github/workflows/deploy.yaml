@@ -63,7 +63,10 @@ jobs:
         run: docker compose up -d --pull always
 
       - name: Migrate
-        run: docker compose -f compose.deploy.yaml exec backend python src/manage.py migrate
+        run: docker compose exec backend python src/manage.py migrate
+
+      - name: Create service user
+        run: docker compose exec backend python src/manage.py create_service_user ${{ vars.SERVICE_EMAIL }} ${{ secrets.SERVICE_PASSWORD }}
 
       - name: Cleanup
         run: docker system prune -af

@@ -51,6 +51,9 @@ async def get_profile(request: APIRequest, user_id: uuid.UUID) -> AccountEntity:
     response={200: StatusSchema, ERROR_CODES: ErrorSchema},
 )
 async def link_telegram(request: APIRequest, user_id: uuid.UUID, telegram_id: int):
+    if not request.user.is_admin:
+        return 403, ErrorSchema(detail="You can not link telegram id")
+
     user = await aget_object_or_404(Account, id=user_id)
 
     user.telegram_id = telegram_id
