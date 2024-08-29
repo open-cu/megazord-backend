@@ -1,5 +1,5 @@
 # Changelog
-## Unreleased - 28.08.2024
+## Unreleased - 29.08.2024
 
 ### Features
 
@@ -80,4 +80,8 @@
 
 - Docker-compose + Add: endpoints for admin - ([676079a](https://github.com/open-cu/megazord-backend/commit/676079a36cb0184b88c8379fbd9711120c5f0302))
 - Sqlite -> postgresql - ([65722ad](https://github.com/open-cu/megazord-backend/commit/65722adedddab6276e3cba258c7e2fcd0580e81b))
+
+### Cd
+
+- Setup deploy (#98) - ([b74a57a](https://github.com/open-cu/megazord-backend/commit/b74a57a9919ebc0d8772db632898b6ce895f5da2))
 
