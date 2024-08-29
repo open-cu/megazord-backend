@@ -477,8 +477,9 @@ async def get_participants_without_team(request: APIRequest, hackathon_id: uuid.
     participants_without_team = hackathon.participants.exclude(
         team_members__hackathon=hackathon
     )
+
     resumes = Resume.objects.select_related("user").filter(
-        user__in=participants_without_team
+        user__in=participants_without_team, hackathon_id=hackathon_id
     )
 
     return 200, [await resume.to_entity() async for resume in resumes]

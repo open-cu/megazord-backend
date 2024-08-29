@@ -3,10 +3,10 @@ name: "megazord"
 
 services:
   backend:
-    image: ghcr.io/open-cu/megazord-backend:${BACKEND_IMAGE_TAG:-main}
-#    build:
-#      context: .
-#      dockerfile: Dockerfile
+#    image: ghcr.io/open-cu/megazord-backend:${BACKEND_IMAGE_TAG:-main}
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     environment:

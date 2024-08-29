@@ -9,9 +9,7 @@ from teams.models import Team
 
 
 def get_emails_from_csv(file: UploadedFile) -> list[str]:
-    file_data = file.read().decode(
-        "utf-8-sig"
-    )  # Используем 'utf-8-sig' для удаления BOM
+    file_data = file.read().decode("utf-8-sig")
     csv_reader = csv.reader(StringIO(file_data), delimiter=",")
     emails = [row[0].strip() for row in csv_reader if row]
 
@@ -19,32 +17,25 @@ def get_emails_from_csv(file: UploadedFile) -> list[str]:
 
 
 async def make_csv(hackathon) -> str:
-    # Создание объекта для записи CSV
     csv_output = StringIO()
     csv_writer = csv.writer(csv_output)
 
-    # Запись заголовков CSV-файла
     csv_writer.writerow(["Team", "Email", "Full Name", "GitHub", "Role"])
 
-    # Получение списка команд и их участников
     teams = Team.objects.filter(hackathon=hackathon).prefetch_related("team_members")
 
     async for team in teams:
         async for participant in team.team_members.all():
-            # Получаем резюме участника, если оно существует
             try:
                 resume = await Resume.objects.aget(
                     user=participant, hackathon=hackathon
                 )
-                github = (
-                    resume.github or "N/A"
-                )  # Используем GitHub из резюме, если оно существует
+                github = resume.github or "N/A"
             except Resume.DoesNotExist:
-                github = "N/A"  # Если резюме нет, то заполняем поле "N/A"
+                github = "N/A"
 
-            # Получаем роль участника в хакатоне через таблицу UserRole
             try:
-                user_role = await UserRole.objects.aget(
+                user_role = await UserRole.objects.select_related("role").aget(
                     user=participant, hackathon=hackathon
                 )
                 role = user_role.role.name
@@ -54,28 +45,25 @@ async def make_csv(hackathon) -> str:
             csv_writer.writerow(
                 [
                     team.name,
-                    participant.email,  # Почта участника
-                    participant.username,  # Полное имя участника
-                    github,  # GitHub пользователя из резюме
-                    role,  # Роль участника в хакатоне
+                    participant.email,
+                    participant.username,
+                    github,
+                    role,
                 ]
             )
 
-    # Добавление участников без команды
     participants_without_team = hackathon.participants.exclude(
         id__in=teams.values_list("team_members__id", flat=True)
     )
     async for participant in participants_without_team:
-        # Получаем резюме участника, если оно существует
         try:
             resume = await Resume.objects.aget(user=participant, hackathon=hackathon)
             github = resume.github or "N/A"
         except Resume.DoesNotExist:
             github = "N/A"
 
-        # Получаем роль участника в хакатоне через таблицу UserRole
         try:
-            user_role = await UserRole.objects.aget(
+            user_role = await UserRole.objects.select_related("role").aget(
                 user=participant, hackathon=hackathon
             )
             role = user_role.role.name
@@ -85,12 +73,11 @@ async def make_csv(hackathon) -> str:
         csv_writer.writerow(
             [
                 "No Team",
-                participant.email,  # Почта участника
-                participant.username,  # Полное имя участника
-                github,  # GitHub пользователя из резюме
-                role,  # Роль участника в хакатоне
+                participant.email,
+                participant.username,
+                github,
+                role,
             ]
         )
 
-    # Возврат содержимого CSV как строки
     return csv_output.getvalue()
