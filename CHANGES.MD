@@ -1,8 +1,9 @@
 # Changelog
-## Unreleased - 29.08.2024
+## Unreleased - 04.09.2024
 
 ### Features
 
+- Teams by role that include or not include (#99) - ([ce8c2d0](https://github.com/open-cu/megazord-backend/commit/ce8c2d0c3732bdc046804109f085a2282dd8a926))
 - Improve ci (#90) - ([dcb68af](https://github.com/open-cu/megazord-backend/commit/dcb68afff86007e20a3bdf3fe6bdcc23853930a3))
 - Return resumes of participants without team (#88) - ([94500f2](https://github.com/open-cu/megazord-backend/commit/94500f27390e0c49dfe8578c9c17b26655c906e3))
 - Add async support (#79) - ([9b3566d](https://github.com/open-cu/megazord-backend/commit/9b3566dff7380403c19a94acbdb327806d0b0a27))
