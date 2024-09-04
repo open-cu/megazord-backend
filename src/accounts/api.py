@@ -39,7 +39,7 @@ async def signup(
         email=schema.email,
         username=schema.username,
         password=schema.password,
-        is_organizator=schema.is_organizator,
+        is_organizator=False,
         age=schema.age,
         city=schema.city,
         work_experience=schema.work_experience,

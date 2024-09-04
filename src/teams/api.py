@@ -1,9 +1,11 @@
 import uuid
 from datetime import datetime
+from typing import List, Optional
 
 import jwt
+from django.db.models import Q
 from django.shortcuts import aget_object_or_404
-from ninja import Router
+from ninja import Query, Router
 
 from accounts.models import Account
 from hackathons.models import Hackathon
@@ -274,11 +276,27 @@ async def edit_team(
 
 @team_router.get(path="/", response={200: list[TeamSchema], ERROR_CODES: ErrorSchema})
 async def get_teams(
-    request: APIRequest, hackathon_id: uuid.UUID
-) -> tuple[int, list[Team]]:
+    request: APIRequest,
+    hackathon_id: uuid.UUID,
+    include_roles: Optional[List[str]] = Query(None),
+    not_include_roles: Optional[List[str]] = Query(None),
+) -> tuple[int, list[TeamSchema]]:
     teams_query_set = Team.objects.filter(hackathon_id=hackathon_id).prefetch_related(
-        "team_members"
+        "team_members", "vacancies__keywords", "hackathon__roles"
     )
+
+    if include_roles:
+        for role in include_roles:
+            teams_query_set = teams_query_set.filter(
+                Q(hackathon__roles__name__iexact=role)
+            ).distinct()
+
+    if not_include_roles:
+        for role in not_include_roles:
+            teams_query_set = teams_query_set.exclude(
+                Q(hackathon__roles__name__iexact=role)
+            ).distinct()
+
     teams = [await team.to_entity() async for team in teams_query_set]
 
     return 200, teams
@@ -337,8 +355,14 @@ async def get_suggest_users_for_specific_vacancy(
     response={200: VacancySuggestionForUserSchema, ERROR_CODES: ErrorSchema},
 )
 async def get_suggest_vacancies_for_specific_user(
-    request: APIRequest, resume_id: uuid.UUID
+    request: APIRequest,
+    resume_id: uuid.UUID,
+    include_roles: Optional[str] = None,
+    not_include_roles: Optional[str] = None,
 ):
+    include_roles = include_roles.split(",") if include_roles else []
+    not_include_roles = not_include_roles.split(",") if not_include_roles else []
+
     resume = await aget_object_or_404(Resume, id=resume_id)
     teams = Team.objects.filter(hackathon_id=resume.hackathon_id)
 
@@ -354,6 +378,12 @@ async def get_suggest_vacancies_for_specific_user(
             keywords = {
                 keyword.text.lower() async for keyword in vacancy.keywords.all()
             }
+            if include_roles:
+                if not all(role.lower() in keywords for role in include_roles):
+                    continue
+            if not_include_roles:
+                if any(role.lower() in keywords for role in not_include_roles):
+                    continue
             matching[vacancy] = len(keywords & skills)
 
     rating = sorted(matching.items(), key=lambda item: item[1], reverse=True)
