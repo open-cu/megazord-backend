@@ -17,8 +17,9 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.megazord_backend.entrypoints=https"
       - "traefik.http.routers.megazord_backend.rule=Host(`$DEPLOY_DOMAIN`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.megazord_backend.priority=1"
       - "traefik.http.services.megazord_backend.loadbalancer.server.port=8000"
-      - "traefik.http.routers.megazord_backend.tls.certresolver=letsEncrypt"
+      # - "traefik.http.routers.megazord_backend.tls.certresolver=letsEncrypt"
       - "traefik.docker.network=proxy"
 
     environment:
