@@ -1,9 +1,0 @@
-{% extends "mail_templated/base.tpl" %}
-
-{% block subject %}
-	{{ who_left.email }} покинул команду
-{% endblock %}
-
-{% block html %}
-	<b>{{ who_left.email }}</b> покинул команду <b>{{ team.name }}</b>
-{% endblock %}
