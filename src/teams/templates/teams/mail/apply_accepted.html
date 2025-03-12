@@ -1,9 +1,0 @@
-{% extends "mail_templated/base.tpl" %}
-
-{% block subject %}
-    Вас приняли в команду {{ team.name }}
-{% endblock %}
-
-{% block html %}
-    Вас приняли в команду <b>{{ team.name }}</b> на хакатоне <b>{{ team.hackathon.name }}</b>.
-{% endblock %}

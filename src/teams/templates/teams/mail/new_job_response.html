@@ -1,9 +1,0 @@
-{% extends "mail_templated/base.tpl" %}
-
-{% block subject %}
-    Посмотрите новый отклик
-{% endblock %}
-
-{% block html %}
-	<b>{{ who_response.email }}</b> откликнулся на вакансию <b>{{ vacancy.name }}</b> в команде {{ team.name }}
-{% endblock %}
